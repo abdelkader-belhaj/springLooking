@@ -1,0 +1,66 @@
+package tn.hypercloud.entity.transport;
+
+import tn.hypercloud.entity.transport.enums.DemandeStatus;
+import tn.hypercloud.entity.transport.enums.TypeVehicule;
+import jakarta.persistence.*;
+import lombok.*;
+import tn.hypercloud.entity.user.User;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "demandes_courses")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class DemandeCourse {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_demande")
+    private Long idDemande;
+
+    @ManyToOne
+            (fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_client", nullable = false)
+    private User client;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_localisation_depart", nullable = false)
+    private Localisation localisationDepart;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_localisation_arrivee", nullable = false)
+    private Localisation localisationArrivee;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_vehicule_demande", nullable = false)
+    private TypeVehicule typeVehiculeDemande;
+
+    @Column(name = "prix_estime", precision = 10, scale = 2)
+    private BigDecimal prixEstime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private DemandeStatus statut = DemandeStatus.PENDING;
+
+    @Column(updatable = false)
+    private LocalDateTime dateCreation;
+
+    private LocalDateTime dateModification;
+
+    @OneToOne(mappedBy = "demande", fetch = FetchType.LAZY)
+    private Course course;
+
+    @PrePersist
+    protected void onCreate() {
+        dateCreation = LocalDateTime.now();
+        dateModification = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        dateModification = LocalDateTime.now();
+    }
+}
+
