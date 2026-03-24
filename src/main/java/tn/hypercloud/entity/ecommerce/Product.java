@@ -2,10 +2,10 @@
 package tn.hypercloud.entity.ecommerce;
 
 
-import jakarta.persistence.*;
-import lombok.*;
 import tn.hypercloud.entity.user.User;
 
+import jakarta.persistence.*;
+import lombok.*;
 import java.math.BigDecimal;
 
 @Entity
