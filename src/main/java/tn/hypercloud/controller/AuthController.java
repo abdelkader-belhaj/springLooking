@@ -1,4 +1,4 @@
-package tn.esprit.m_user.controller;
+package tn.hypercloud.controller;
 
 
 
@@ -6,11 +6,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import tn.esprit.m_user.payload.request.LoginRequest;
-import tn.esprit.m_user.payload.request.RegisterRequest;
-import tn.esprit.m_user.payload.response.ApiResponse;
-import tn.esprit.m_user.payload.response.AuthResponse;
-import tn.esprit.m_user.service.AuthService;
+import tn.hypercloud.payload.request.LoginRequest;
+import tn.hypercloud.payload.request.RegisterRequest;
+import tn.hypercloud.payload.response.ApiResponse;
+import tn.hypercloud.payload.response.AuthResponse;
+import tn.hypercloud.service.AuthService;
 
 @RestController
 @RequestMapping("/api/auth")

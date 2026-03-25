@@ -65,14 +65,6 @@ public class User implements UserDetails {
     //  Methodes du diagramme de classe
     // ============================================
 
-    public Role getRole() {
-        return role;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
     public String getFullName() {
         return username;
     }

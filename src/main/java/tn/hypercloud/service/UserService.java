@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.user.Role;
+import tn.hypercloud.entity.user.User;
 import tn.hypercloud.payload.request.ChangePasswordRequest;
 import tn.hypercloud.payload.request.UpdateUserRequest;
 import tn.hypercloud.payload.response.UserResponse;

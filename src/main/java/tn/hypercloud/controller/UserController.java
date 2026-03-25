@@ -1,4 +1,4 @@
-package tn.esprit.m_user.controller;
+package tn.hypercloud.controller;
 
 
 
@@ -7,12 +7,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import tn.esprit.m_user.entity.Role;
-import tn.esprit.m_user.payload.request.ChangePasswordRequest;
-import tn.esprit.m_user.payload.request.UpdateUserRequest;
-import tn.esprit.m_user.payload.response.ApiResponse;
-import tn.esprit.m_user.payload.response.UserResponse;
-import tn.esprit.m_user.service.UserService;
+import tn.hypercloud.entity.user.Role;
+import tn.hypercloud.payload.request.ChangePasswordRequest;
+import tn.hypercloud.payload.request.UpdateUserRequest;
+import tn.hypercloud.payload.response.ApiResponse;
+import tn.hypercloud.payload.response.UserResponse;
+import tn.hypercloud.service.UserService;
 
 import java.util.List;
 

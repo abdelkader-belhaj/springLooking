@@ -27,7 +27,7 @@ public class UserResponse {
         return UserResponse.builder()
                 .id(user.getId())
                 .username(user.getFullName())
-                .email(user.getUsername())
+                .email(user.getEmail())
                 .enabled(user.isEnabled())
                 .role(user.getRole())
                 .createdAt(user.getCreatedAt())
