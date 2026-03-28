@@ -9,7 +9,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "event_activity")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class EventActivity {
 
     @Id
@@ -50,19 +54,24 @@ public class EventActivity {
     private String imageUrl;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private EventType type;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EventStatus status = EventStatus.DRAFT;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private EventCategory category;
 
-    /**
-     * L'organisateur de l'événement (role = ORGANISATEUR_EVNT)
-     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organizer_id", nullable = false)
     private User organizer;
@@ -70,7 +79,23 @@ public class EventActivity {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 
-    public enum EventStatus { DRAFT, PUBLISHED, CANCELLED, COMPLETED }
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public enum EventType {
+        EVENT,
+        ACTIVITY
+    }
+
+    public enum EventStatus {
+        DRAFT,
+        PUBLISHED,
+        CANCELLED,
+        COMPLETED
+    }
 }

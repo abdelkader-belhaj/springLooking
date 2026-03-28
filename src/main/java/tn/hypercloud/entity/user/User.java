@@ -14,6 +14,10 @@ import java.util.List;
 
 @Entity
 @Table(name = "user")
+// Lombok: genere automatiquement getters/setters.
+// @NoArgsConstructor: constructeur vide (utile pour JPA).
+// @AllArgsConstructor: constructeur avec tous les champs.
+// @Builder: creation d'objet lisible via pattern builder.
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class User implements UserDetails {
 
@@ -57,13 +61,22 @@ public class User implements UserDetails {
     @Column(name = "profile_image", length = 500)
     private String profileImage;
 
+    @Column(name = "face_embedding", columnDefinition = "LONGTEXT")
+    private String faceEmbedding;
+
+    @Column(name = "face_model_name", length = 50)
+    private String faceModelName;
+
+    @Column(name = "face_detector_backend", length = 50)
+    private String faceDetectorBackend;
+
+    @Column(name = "face_threshold")
+    private Double faceThreshold;
 
 
 
 
-// ============================================
-    //  Methodes du diagramme de classe
-    // ============================================
+
 
     public Role getRole() {
         return role;
@@ -103,9 +116,13 @@ public class User implements UserDetails {
     @Override 
     public boolean isCredentialsNonExpired() { return true; }
 
-    // ============================================
-    //  Cycle de vie JPA
-    // ============================================
+// ============================================
+//  Cycle de vie JPAJPA = Java Persistence API.
+//C la norme Java pour mapper les classes Java vers les tables SQL.
+// “cycle JPA” = comment l’entité naît, est gérée, se détache,  
+// puis se supprime, avec des hooks automatiques comme
+// // @PrePersist / @PreUpdate.
+// ============================================
 
     @PrePersist
     protected void onCreate() {
