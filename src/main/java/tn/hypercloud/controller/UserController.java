@@ -39,7 +39,6 @@ public class UserController {
      * Postman : GET http://localhost:8080/api/users/1
      */
     @GetMapping("/{id}")
-        @PreAuthorize("hasRole('ADMIN') or @userAuthorizationService.isSelf(#id)")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(
                 ApiResponse.success("User trouve", userService.getUserById(id)));
@@ -51,7 +50,6 @@ public class UserController {
      * Body    : { "username": "nouveau_nom" }
      */
     @PutMapping("/{id}")
-        @PreAuthorize("hasRole('ADMIN') or @userAuthorizationService.isSelf(#id)")
     public ResponseEntity<ApiResponse<UserResponse>> updateUser(
             @PathVariable Long id,
             @Valid @RequestBody UpdateUserRequest request) {
@@ -78,7 +76,6 @@ public class UserController {
      * Body    : { "oldPassword":"123456", "newPassword":"newpass", "confirmPassword":"newpass" }
      */
     @PatchMapping("/{id}/password")
-        @PreAuthorize("hasRole('ADMIN') or @userAuthorizationService.isSelf(#id)")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @PathVariable Long id,
             @Valid @RequestBody ChangePasswordRequest request) {
