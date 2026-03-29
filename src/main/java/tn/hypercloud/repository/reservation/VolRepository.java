@@ -6,6 +6,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface VolRepository extends JpaRepository<Vol, Integer> {
+    List<Vol> findByUserId(Long userId);  // remplace findBySocieteId
     List<Vol> findByDepartAndArriveeAndDateDepart(String depart, String arrivee, LocalDate date);
-    List<Vol> findBySocieteId(Integer societeId);
 }

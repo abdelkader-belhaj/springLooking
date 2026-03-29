@@ -5,6 +5,8 @@ package tn.hypercloud.entity.reservation.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import tn.hypercloud.entity.reservation.dto.VolRequest;
 import tn.hypercloud.entity.reservation.dto.VolResponse;
@@ -29,8 +31,10 @@ public class VolController {
 
     @PostMapping
     @PreAuthorize("hasRole('SOCIETE')")
-    public ResponseEntity<VolResponse> create(@RequestBody VolRequest req) {
-        return ResponseEntity.ok(volService.create(req));
+    public ResponseEntity<VolResponse> create(
+            @AuthenticationPrincipal UserDetails user, // ← ajouter
+            @RequestBody VolRequest req) {
+        return ResponseEntity.ok(volService.create(user.getUsername(), req)); // ← passer l'email
     }
 
     @PutMapping("/{id}")
@@ -59,10 +63,12 @@ public class VolController {
         return ResponseEntity.ok(volService.getAll());
     }
 
-    @GetMapping("/societe/{societeId}")
+    @GetMapping("/mes-vols")
     @PreAuthorize("hasRole('SOCIETE')")
-    public ResponseEntity<List<VolResponse>> getBySociete(@PathVariable Integer societeId) {
-        return ResponseEntity.ok(volService.getBySociete(societeId));
+    public ResponseEntity<List<VolResponse>> getMesVols(
+            @AuthenticationPrincipal UserDetails user) {
+        Long userId = /* récupérer userId */ null;
+        return ResponseEntity.ok(volService.getByUser(userId));
     }
 
     // =============================================

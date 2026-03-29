@@ -1,14 +1,13 @@
 package tn.hypercloud.entity.reservation.service;
 
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.reservation.dto.VolRequest;
 import tn.hypercloud.entity.reservation.dto.VolResponse;
-import tn.hypercloud.entity.reservation.Societe;
 import tn.hypercloud.entity.reservation.Vol;
-import tn.hypercloud.repository.reservation.SocieteRepository;
+import tn.hypercloud.entity.user.User;
 import tn.hypercloud.repository.reservation.VolRepository;
+import tn.hypercloud.repository.user.UserRepository;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,15 +18,14 @@ import java.util.stream.Collectors;
 public class VolService {
 
     private final VolRepository volRepo;
-    private final SocieteRepository societeRepo;
+    private final UserRepository userRepo;
+    // SocieteRepository supprimé — plus nécessaire
 
-    // ---- CRUD SOCIETE ----
-
-    public VolResponse create(VolRequest req) {
-        Societe societe = societeRepo.findById(req.getSocieteId())
-                .orElseThrow(() -> new RuntimeException("Société introuvable"));
+    public VolResponse create(String email, VolRequest req) {
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
         Vol vol = Vol.builder()
-                .societe(societe)
+                .user(user)
                 .numero(req.getNumero())
                 .depart(req.getDepart())
                 .arrivee(req.getArrivee())
@@ -62,24 +60,27 @@ public class VolService {
     }
 
     public List<VolResponse> getAll() {
-        return volRepo.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        return volRepo.findAll().stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
-    public List<VolResponse> getBySociete(Integer societeId) {
-        return volRepo.findBySocieteId(societeId).stream().map(this::toResponse).collect(Collectors.toList());
+    // Remplace getBySociete — maintenant par userId
+    public List<VolResponse> getByUser(Long userId) {
+        return volRepo.findByUserId(userId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
-    // ---- RECHERCHE CLIENT ----
     public List<VolResponse> search(String depart, String arrivee, LocalDate date) {
         return volRepo.findByDepartAndArriveeAndDateDepart(depart, arrivee, date)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ---- MAPPER ----
     public VolResponse toResponse(Vol v) {
         return VolResponse.builder()
                 .id(v.getId())
-                .societeNom(v.getSociete().getNom())
+                .societeNom(v.getUser().getUsername())
                 .numero(v.getNumero())
                 .depart(v.getDepart())
                 .arrivee(v.getArrivee())

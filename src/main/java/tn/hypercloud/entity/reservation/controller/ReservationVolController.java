@@ -65,4 +65,9 @@ public class ReservationVolController {
             @RequestBody PaiementRequest req) {
         return ResponseEntity.ok(reservationService.payer(user.getUsername(), req));
     }
+    @GetMapping("/toutes")
+    @PreAuthorize("hasRole('SOCIETE')")
+    public ResponseEntity<List<ReservationResponse>> toutesLesReservations() {
+        return ResponseEntity.ok(reservationService.toutesLesReservations());
+    }
 }

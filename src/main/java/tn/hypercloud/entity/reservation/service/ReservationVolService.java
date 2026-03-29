@@ -146,4 +146,8 @@ public class ReservationVolService {
                 .statutPaiement(statut)
                 .build();
     }
+    public List<ReservationResponse> toutesLesReservations() {
+        return reservationRepo.findAll()
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
 }
