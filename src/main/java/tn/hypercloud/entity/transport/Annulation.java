@@ -4,12 +4,18 @@ package tn.hypercloud.entity.transport;
 import tn.hypercloud.entity.transport.enums.AnnulePar;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.FieldDefaults;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "annulations")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class Annulation {
 
     @Id
@@ -49,4 +55,6 @@ public class Annulation {
     protected void onUpdate() {
         dateModification = LocalDateTime.now();
     }
+
+
 }

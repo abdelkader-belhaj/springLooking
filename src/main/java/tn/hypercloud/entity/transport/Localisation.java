@@ -1,5 +1,6 @@
 package tn.hypercloud.entity.transport;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -8,6 +9,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "localisations")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+
 public class Localisation {
 
     @Id

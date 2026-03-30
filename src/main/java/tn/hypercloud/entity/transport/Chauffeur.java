@@ -1,16 +1,18 @@
 package tn.hypercloud.entity.transport;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import tn.hypercloud.entity.user.User;
 import tn.hypercloud.entity.transport.enums.ChauffeurStatut;
 import tn.hypercloud.entity.transport.enums.DisponibiliteStatut;
 import jakarta.persistence.*;
 import lombok.*;
-import tn.hypercloud.entity.user.User;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-
+import jakarta.persistence.Transient;
 @Entity
 @Table(name = "chauffeurs")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Chauffeur {
 
     @Id
@@ -20,8 +22,10 @@ public class Chauffeur {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_utilisateur", nullable = false, unique = true)
+    @JsonIgnore
     private User utilisateur;
-
+    @Transient
+    private Long utilisateurId;
     @Column(nullable = false, length = 20)
     private String telephone;
 

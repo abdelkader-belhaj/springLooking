@@ -1,5 +1,7 @@
 package tn.hypercloud.entity.transport;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tn.hypercloud.entity.transport.enums.CourseStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,7 +11,12 @@ import java.util.List;
 
 @Entity
 @Table(name = "courses")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Course {
 
     @Id
@@ -19,11 +26,13 @@ public class Course {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_demande", nullable = false, unique = true)
+    @JsonIgnore
     private DemandeCourse demande;
 
     // Lien Matching → traçabilité complète du flow
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_matching",  unique = true)
+    @JsonIgnore
     private Matching matching;
 
     @ManyToOne(fetch = FetchType.LAZY)

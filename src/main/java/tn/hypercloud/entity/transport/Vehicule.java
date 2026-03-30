@@ -1,4 +1,5 @@
 package tn.hypercloud.entity.transport;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tn.hypercloud.entity.transport.enums.TypeVehicule;
 import tn.hypercloud.entity.transport.enums.VehiculeStatut;
 import jakarta.persistence.*;
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "vehicules")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Vehicule {
 
     @Id
@@ -18,6 +20,7 @@ public class Vehicule {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_chauffeur", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Chauffeur chauffeur;
 
     @Column(length = 100)

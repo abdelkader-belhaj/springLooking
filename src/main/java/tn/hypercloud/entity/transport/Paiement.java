@@ -1,5 +1,7 @@
 package tn.hypercloud.entity.transport;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tn.hypercloud.entity.transport.enums.PaiementStatut;
 import tn.hypercloud.entity.transport.enums.PaiementMethode;
 import jakarta.persistence.*;
@@ -10,6 +12,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "paiements")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Paiement {
 
     @Id
@@ -19,6 +22,7 @@ public class Paiement {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_course", nullable = false, unique = true)
+    @JsonIgnore
     private Course course;
 
     @Column(precision = 10, scale = 2)

@@ -1,17 +1,20 @@
 package tn.hypercloud.entity.transport;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import tn.hypercloud.entity.user.User;
 import tn.hypercloud.entity.transport.enums.DemandeStatus;
 import tn.hypercloud.entity.transport.enums.TypeVehicule;
 import jakarta.persistence.*;
 import lombok.*;
-import tn.hypercloud.entity.user.User;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "demandes_courses")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+
 public class DemandeCourse {
 
     @Id
@@ -22,6 +25,7 @@ public class DemandeCourse {
     @ManyToOne
             (fetch = FetchType.LAZY)
     @JoinColumn(name = "id_client", nullable = false)
+    //@JsonIgnore
     private User client;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -50,6 +54,7 @@ public class DemandeCourse {
     private LocalDateTime dateModification;
 
     @OneToOne(mappedBy = "demande", fetch = FetchType.LAZY)
+    @JsonIgnore
     private Course course;
 
     @PrePersist

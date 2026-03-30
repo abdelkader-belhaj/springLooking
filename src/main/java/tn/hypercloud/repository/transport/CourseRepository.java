@@ -1,9 +1,15 @@
 package tn.hypercloud.repository.transport;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import tn.hypercloud.entity.transport.Chauffeur;
 import tn.hypercloud.entity.transport.Course;
+import tn.hypercloud.entity.transport.enums.CourseStatus;
 
-@Repository
+import java.time.LocalDateTime;
+import java.util.List;
+
 public interface CourseRepository extends JpaRepository<Course, Long> {
+    List<Course> findByChauffeur(Chauffeur chauffeur);
+    List<Course> findByStatut(CourseStatus statut);
+    List<Course> findByDateCreationBetween(LocalDateTime start, LocalDateTime end);
 }
