@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.dto.ecommerce.PromocodeDTO;
 import tn.hypercloud.entity.ecommerce.PromoCode;
-import tn.hypercloud.repository.ecommerce.PromocodeRepository;
+import tn.hypercloud.repository.ecommerce.PromoCodeRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class PromocodeService {
-    private final PromocodeRepository promocodeRepository;
+    private final PromoCodeRepository promocodeRepository;
 
     public PromocodeDTO createPromocode(PromocodeDTO promocodeDTO) {
         PromoCode promoCode = PromoCode.builder()

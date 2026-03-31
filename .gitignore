@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Postman Collections & Testing Guides ###
+LOOKING_API_COMPLETE.postman_collection.json
+TUNISIA_TOUR_COMPLETE.postman_collection.json
+TUNISIA_TOUR_TESTING_GUIDE.md
+POSTMAN_AUTH_USER_GUIDE.md
+
+### Class Index ###
+cls

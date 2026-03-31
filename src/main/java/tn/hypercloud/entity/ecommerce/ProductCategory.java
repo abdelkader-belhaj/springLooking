@@ -28,4 +28,7 @@ public class ProductCategory {
 
     @Column(length = 500)
     private String image;
+
+    @Column(name = "display_order", nullable = false)
+    private Integer displayOrder = 0;
 }

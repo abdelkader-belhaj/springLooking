@@ -10,5 +10,6 @@ public class ProductCategoryDTO {
     private String name;
     private String description;
     private String image;
+    private Integer displayOrder;
     private List<ProductCategoryDTO> children;
 }

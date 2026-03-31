@@ -9,7 +9,11 @@ public class OrderDetailDTO {
     private Long orderId;
     private Long productId;
     private String productName;
+    private String productImage;      // Image du produit (snapshot)
+    private String productCategory;   // Catégorie du produit
     private int quantity;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
+    private BigDecimal discount;      // Remise éventuellement appliquée
+    private BigDecimal totalWithDiscount; // Subtotal après remise
 }
