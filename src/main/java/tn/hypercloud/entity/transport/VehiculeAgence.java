@@ -1,4 +1,5 @@
 package tn.hypercloud.entity.transport;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tn.hypercloud.entity.transport.enums.TypeVehicule;
 import tn.hypercloud.entity.transport.enums.VehiculeStatut;
@@ -8,20 +9,27 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "vehicules")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Table(name = "vehicules_agence")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-public class Vehicule {
+public class VehiculeAgence {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_vehicule")
-    private Long idVehicule;
+    @Column(name = "id_vehicule_agence")
+    private Long idVehiculeAgence;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_chauffeur", nullable = false)
+    @JoinColumn(name = "id_agence", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private Chauffeur chauffeur;
+    private AgenceLocation agence;
+
+    @Transient
+    private Long agenceId;
 
     @Column(length = 100)
     private String marque;

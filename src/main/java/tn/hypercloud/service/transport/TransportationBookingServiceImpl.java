@@ -18,9 +18,9 @@ import java.util.List;
 public class TransportationBookingServiceImpl implements ITransportationBookingService {
 
     private final IDemandeCoursService demandeCoursService;
-    private final IMatchingService matchingService;           // if you use it
+    private final IMatchingService matchingService;
     private final DemandeCoursRepository demandeCoursRepository;
-    private final IDistanceService distanceService;           // your distance calculator
+    private final IDistanceService distanceService;
 
     // ─────────────────────────────────────────────────────────────
     // 1. CREATE BOOKING REQUEST (client side)
@@ -39,9 +39,7 @@ public class TransportationBookingServiceImpl implements ITransportationBookingS
         return demandeCoursRepository.save(savedDemande);
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 2. MISSING METHOD FROM INTERFACE → NOW IMPLEMENTED
-    // ─────────────────────────────────────────────────────────────
+
     @Override
     public BigDecimal calculateEstimatedPrice(DemandeCourse demande) {
         if (demande.getLocalisationDepart() == null || demande.getLocalisationArrivee() == null) {
@@ -57,9 +55,7 @@ public class TransportationBookingServiceImpl implements ITransportationBookingS
         return calculateEstimatedPriceWithRoute(route, demande.getTypeVehiculeDemande());
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Private helper (kept exactly as you wrote it)
-    // ─────────────────────────────────────────────────────────────
+
     private BigDecimal calculateEstimatedPriceWithRoute(
             IDistanceService.RouteInfo route,
             TypeVehicule typeVehicule) {
@@ -85,9 +81,7 @@ public class TransportationBookingServiceImpl implements ITransportationBookingS
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    // ─────────────────────────────────────────────────────────────
-// 3. START MATCHING (version finale et complète)
-// ─────────────────────────────────────────────────────────────
+// 3. START MATCHING
     @Override
     @Transactional
     public DemandeCourse startMatching(Long demandeId) {
@@ -106,9 +100,7 @@ public class TransportationBookingServiceImpl implements ITransportationBookingS
         return demande;
     }
 
-    // ─────────────────────────────────────────────────────────────
     // 4. GET BOOKINGS BY CLIENT
-    // ─────────────────────────────────────────────────────────────
     @Override
     public List<DemandeCourse> getBookingsByClient(User client) {
         return demandeCoursRepository.findByClient(client);

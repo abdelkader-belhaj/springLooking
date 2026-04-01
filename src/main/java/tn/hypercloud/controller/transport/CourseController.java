@@ -15,9 +15,7 @@ public class CourseController {
 
     private final ICourseService courseService;
 
-    // =============================================
-    // CRUD de base
-    // =============================================
+
     @PostMapping
     public Course addCourse(@RequestBody Course course) {
         return courseService.addCourse(course);
@@ -33,12 +31,10 @@ public class CourseController {
         return courseService.getAllCourses();
     }
 
-    // =============================================
-    // POINT 5 DU PDF : Déroulement de la course
-    // =============================================
+
     @PutMapping("/{id}/demarrer")
     public Course startCourse(@PathVariable Long id) {
-        return courseService.startCourse(id);           // → ACCEPTED → STARTED
+        return courseService.startCourse(id);
     }
 
     @PutMapping("/{id}/statut/IN_PROGRESS")
