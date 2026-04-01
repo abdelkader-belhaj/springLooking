@@ -2,7 +2,7 @@ package tn.hypercloud.controller.transport;
 
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import tn.hypercloud.entity.transport.Annulation;
+import tn.hypercloud.entity.transport.AnnulationTransport;
 import tn.hypercloud.entity.transport.enums.AnnulePar;
 import tn.hypercloud.service.transport.*;
 
@@ -15,14 +15,14 @@ public class AnnulationController {
     private final IAnnulationService annulationService;
 
     @PostMapping
-    public Annulation addAnnulation(@RequestBody Annulation annulation) {
-        return annulationService.addAnnulation(annulation);
+    public AnnulationTransport addAnnulation(@RequestBody AnnulationTransport annulationTransport) {
+        return annulationService.addAnnulation(annulationTransport);
     }
 
     @PutMapping("/{id}")
-    public Annulation updateAnnulation(@PathVariable Long id, @RequestBody Annulation annulation) {
-        annulation.setIdAnnulation(id);
-        return annulationService.updateAnnulation(annulation);
+    public AnnulationTransport updateAnnulation(@PathVariable Long id, @RequestBody AnnulationTransport annulationTransport) {
+        annulationTransport.setIdAnnulation(id);
+        return annulationService.updateAnnulation(annulationTransport);
     }
 
     @DeleteMapping("/{id}")
@@ -31,17 +31,17 @@ public class AnnulationController {
     }
 
     @GetMapping("/{id}")
-    public Annulation getAnnulationById(@PathVariable Long id) {
+    public AnnulationTransport getAnnulationById(@PathVariable Long id) {
         return annulationService.getAnnulationById(id);
     }
 
     @GetMapping
-    public List<Annulation> getAllAnnulations() {
+    public List<AnnulationTransport> getAllAnnulations() {
         return annulationService.getAllAnnulations();
     }
     // Dans AnnulationController.java
     @PutMapping("/course/{courseId}/annuler")
-    public Annulation annulerCourse(
+    public AnnulationTransport annulerCourse(
             @PathVariable Long courseId,
             @RequestParam AnnulePar annulePar,
             @RequestParam(required = false) String raison) {

@@ -1,6 +1,9 @@
 package tn.hypercloud.service.transport;
 
+import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.entity.transport.ReservationLocation;
+import tn.hypercloud.entity.transport.enums.PaiementMethode;
+
 import java.util.List;
 
 public interface IReservationLocationService {
@@ -15,4 +18,7 @@ public interface IReservationLocationService {
     // Actions sur la réservation
     ReservationLocation confirmReservation(Long id);
     ReservationLocation cancelReservation(Long id);
+
+    @Transactional
+    ReservationLocation completeReservation(Long id, PaiementMethode methode);
 }

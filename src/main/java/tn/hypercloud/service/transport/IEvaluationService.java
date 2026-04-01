@@ -1,16 +1,16 @@
 package tn.hypercloud.service.transport;
 
 import tn.hypercloud.entity.transport.Course;
-import tn.hypercloud.entity.transport.Evaluation;
+import tn.hypercloud.entity.transport.EvaluationTransport;
 import tn.hypercloud.entity.user.User;
 
 import java.util.List;
 public interface IEvaluationService {
-    Evaluation addEvaluation(Evaluation evaluation);
-    Evaluation updateEvaluation(Evaluation evaluation);
+    EvaluationTransport addEvaluation(EvaluationTransport evaluationTransport);
+    EvaluationTransport updateEvaluation(EvaluationTransport evaluationTransport);
     void deleteEvaluation(Long id);
-    Evaluation getEvaluationById(Long id);
-    List<Evaluation> getAllEvaluations();
-    List<Evaluation> getEvaluationsByCourse(Course course);
-    List<Evaluation> getEvaluationsForUser(User user);
+    EvaluationTransport getEvaluationById(Long id);
+    List<EvaluationTransport> getAllEvaluations();
+    List<EvaluationTransport> getEvaluationsByCourse(Course course);
+    List<EvaluationTransport> getEvaluationsForUser(User user);
 }

@@ -3,7 +3,7 @@ package tn.hypercloud.service.transport;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.transport.Course;
-import tn.hypercloud.entity.transport.Evaluation;
+import tn.hypercloud.entity.transport.EvaluationTransport;
 import tn.hypercloud.entity.user.User;
 import tn.hypercloud.repository.transport.CourseRepository;
 import tn.hypercloud.repository.transport.EvaluationRepository;
@@ -17,39 +17,39 @@ public class EvaluationServiceImpl implements IEvaluationService {
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
     @Override
-    public Evaluation addEvaluation(Evaluation evaluation) {
+    public EvaluationTransport addEvaluation(EvaluationTransport evaluationTransport) {
         // 1. Fetch the full Course
-        if (evaluation.getCourse() != null && evaluation.getCourse().getIdCourse() != null) {
-            Course course = courseRepository.findById(evaluation.getCourse().getIdCourse())
+        if (evaluationTransport.getCourse() != null && evaluationTransport.getCourse().getIdCourse() != null) {
+            Course course = courseRepository.findById(evaluationTransport.getCourse().getIdCourse())
                     .orElseThrow(() -> new RuntimeException("Course not found"));
-            evaluation.setCourse(course);
+            evaluationTransport.setCourse(course);
         } else {
             throw new IllegalArgumentException("Course ID is required");
         }
 
         // 2. Fetch the evaluateur User using the transient ID
-        if (evaluation.getEvaluateurId() != null) {
-            User evaluateur = userRepository.findById(evaluation.getEvaluateurId())
-                    .orElseThrow(() -> new RuntimeException("Evaluateur not found with id: " + evaluation.getEvaluateurId()));
-            evaluation.setEvaluateur(evaluateur);
+        if (evaluationTransport.getEvaluateurId() != null) {
+            User evaluateur = userRepository.findById(evaluationTransport.getEvaluateurId())
+                    .orElseThrow(() -> new RuntimeException("Evaluateur not found with id: " + evaluationTransport.getEvaluateurId()));
+            evaluationTransport.setEvaluateur(evaluateur);
         } else {
             throw new IllegalArgumentException("Evaluateur ID is required");
         }
 
         // 3. Fetch the evalue User using the transient ID
-        if (evaluation.getEvalueId() != null) {
-            User evalue = userRepository.findById(evaluation.getEvalueId())
-                    .orElseThrow(() -> new RuntimeException("Evalue not found with id: " + evaluation.getEvalueId()));
-            evaluation.setEvalue(evalue);
+        if (evaluationTransport.getEvalueId() != null) {
+            User evalue = userRepository.findById(evaluationTransport.getEvalueId())
+                    .orElseThrow(() -> new RuntimeException("Evalue not found with id: " + evaluationTransport.getEvalueId()));
+            evaluationTransport.setEvalue(evalue);
         } else {
             throw new IllegalArgumentException("Evalue ID is required");
         }
 
-        return evaluationRepository.save(evaluation);
+        return evaluationRepository.save(evaluationTransport);
     }
     @Override
-    public Evaluation updateEvaluation(Evaluation evaluation) {
-        return evaluationRepository.save(evaluation);
+    public EvaluationTransport updateEvaluation(EvaluationTransport evaluationTransport) {
+        return evaluationRepository.save(evaluationTransport);
     }
 
     @Override
@@ -58,22 +58,22 @@ public class EvaluationServiceImpl implements IEvaluationService {
     }
 
     @Override
-    public Evaluation getEvaluationById(Long id) {
+    public EvaluationTransport getEvaluationById(Long id) {
         return evaluationRepository.findById(id).orElse(null);
     }
 
     @Override
-    public List<Evaluation> getAllEvaluations() {
+    public List<EvaluationTransport> getAllEvaluations() {
         return evaluationRepository.findAll();
     }
 
     @Override
-    public List<Evaluation> getEvaluationsByCourse(Course course) {
+    public List<EvaluationTransport> getEvaluationsByCourse(Course course) {
         return evaluationRepository.findByCourse(course);
     }
 
     @Override
-    public List<Evaluation> getEvaluationsForUser(User user) {
+    public List<EvaluationTransport> getEvaluationsForUser(User user) {
         return evaluationRepository.findByEvalue(user);
     }
 }

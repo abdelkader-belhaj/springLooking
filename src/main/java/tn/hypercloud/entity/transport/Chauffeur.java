@@ -45,6 +45,9 @@ public class Chauffeur {
     @Column(name = "note_moyenne", precision = 3, scale = 2)
     private BigDecimal noteMoyenne;
 
+    @Column(name = "solde", precision = 10, scale = 2, nullable = false, columnDefinition = "DECIMAL(10,2) DEFAULT 0.00")
+    @Builder.Default
+    private BigDecimal solde = BigDecimal.ZERO;
     @Column(updatable = false)
     private LocalDateTime dateCreation;
 

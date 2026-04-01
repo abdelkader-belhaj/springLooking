@@ -11,11 +11,11 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "evaluations",
+@Table(name = "evaluationTransport",
         uniqueConstraints = @UniqueConstraint(columnNames = {"id_course", "type"})  )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-public class Evaluation {
+public class EvaluationTransport {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

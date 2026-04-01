@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import tn.hypercloud.entity.user.User;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +45,9 @@ public class AgenceLocation {
 
     private LocalDateTime dateModification;
 
+    @Column(name = "solde", precision = 10, scale = 2, nullable = false, columnDefinition = "DECIMAL(10,2) DEFAULT 0.00")
+    @Builder.Default
+    private BigDecimal solde = BigDecimal.ZERO;
     // ====================== RELATION AVEC VÉHICULES D'AGENCE ======================
     @OneToMany(mappedBy = "agence", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})

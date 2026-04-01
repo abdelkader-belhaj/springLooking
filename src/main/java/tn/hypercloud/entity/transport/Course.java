@@ -59,19 +59,22 @@ public class Course {
     @Column(name = "prix_final", precision = 10, scale = 2)
     private BigDecimal prixFinal;
 
+    @Column(precision = 10, scale = 2)
+    private BigDecimal montantCommission;
+
     @Column(updatable = false)
     private LocalDateTime dateCreation;
 
     private LocalDateTime dateModification;
 
     @OneToOne(mappedBy = "course", cascade = CascadeType.ALL)
-    private Paiement paiement;
+    private PaiementTransport paiementTransport;
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL)
-    private List<Evaluation> evaluations;
+    private List<EvaluationTransport> evaluationTransports;
 
     @OneToOne(mappedBy = "course", cascade = CascadeType.ALL)
-    private Annulation annulation;
+    private AnnulationTransport annulationTransport;
 
     @PrePersist
     protected void onCreate() {

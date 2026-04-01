@@ -9,14 +9,14 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "annulations")
+@Table(name = "annulationTransport")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class Annulation {
+public class AnnulationTransport {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -2,7 +2,7 @@ package tn.hypercloud.controller.transport;
 
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import tn.hypercloud.entity.transport.Evaluation;
+import tn.hypercloud.entity.transport.EvaluationTransport;
 import tn.hypercloud.service.transport.*;
 
 import java.util.List;
@@ -14,14 +14,14 @@ public class EvaluationController {
     private final IEvaluationService evaluationService;
 
     @PostMapping
-    public Evaluation addEvaluation(@RequestBody Evaluation evaluation) {
-        return evaluationService.addEvaluation(evaluation);
+    public EvaluationTransport addEvaluation(@RequestBody EvaluationTransport evaluationTransport) {
+        return evaluationService.addEvaluation(evaluationTransport);
     }
 
     @PutMapping("/{id}")
-    public Evaluation updateEvaluation(@PathVariable Long id, @RequestBody Evaluation evaluation) {
-        evaluation.setIdEvaluation(id);
-        return evaluationService.updateEvaluation(evaluation);
+    public EvaluationTransport updateEvaluation(@PathVariable Long id, @RequestBody EvaluationTransport evaluationTransport) {
+        evaluationTransport.setIdEvaluation(id);
+        return evaluationService.updateEvaluation(evaluationTransport);
     }
 
     @DeleteMapping("/{id}")
@@ -30,12 +30,12 @@ public class EvaluationController {
     }
 
     @GetMapping("/{id}")
-    public Evaluation getEvaluationById(@PathVariable Long id) {
+    public EvaluationTransport getEvaluationById(@PathVariable Long id) {
         return evaluationService.getEvaluationById(id);
     }
 
     @GetMapping
-    public List<Evaluation> getAllEvaluations() {
+    public List<EvaluationTransport> getAllEvaluations() {
         return evaluationService.getAllEvaluations();
     }
 }

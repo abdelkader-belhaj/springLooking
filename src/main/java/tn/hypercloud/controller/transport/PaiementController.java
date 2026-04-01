@@ -1,10 +1,12 @@
 package tn.hypercloud.controller.transport;
 
 import lombok.AllArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import tn.hypercloud.entity.transport.Paiement;
+import tn.hypercloud.entity.transport.PaiementTransport;
 import tn.hypercloud.service.transport.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 @RestController
 @RequestMapping("/hypercloud/paiements")
@@ -14,14 +16,14 @@ public class PaiementController {
     private final IPaiementService paiementService;
 
     @PostMapping
-    public Paiement addPaiement(@RequestBody Paiement paiement) {
-        return paiementService.addPaiement(paiement);
+    public PaiementTransport addPaiement(@RequestBody PaiementTransport paiementTransport) {
+        return paiementService.addPaiement(paiementTransport);
     }
 
     @PutMapping("/{id}")
-    public Paiement updatePaiement(@PathVariable Long id, @RequestBody Paiement paiement) {
-        paiement.setIdPaiement(id);
-        return paiementService.updatePaiement(paiement);
+    public PaiementTransport updatePaiement(@PathVariable Long id, @RequestBody PaiementTransport paiementTransport) {
+        paiementTransport.setIdPaiement(id);
+        return paiementService.updatePaiement(paiementTransport);
     }
 
     @DeleteMapping("/{id}")
@@ -30,22 +32,27 @@ public class PaiementController {
     }
 
     @GetMapping("/{id}")
-    public Paiement getPaiementById(@PathVariable Long id) {
+    public PaiementTransport getPaiementById(@PathVariable Long id) {
         return paiementService.getPaiementById(id);
     }
 
     @GetMapping
-    public List<Paiement> getAllPaiements() {
+    public List<PaiementTransport> getAllPaiements() {
         return paiementService.getAllPaiements();
     }
 
     @PutMapping("/{id}/completer")
-    public Paiement completePaiement(@PathVariable Long id) {
+    public PaiementTransport completePaiement(@PathVariable Long id) {
         return paiementService.completePaiement(id);
     }
 
     @PutMapping("/{id}/rembourser")
-    public Paiement refundPaiement(@PathVariable Long id) {
+    public PaiementTransport refundPaiement(@PathVariable Long id) {
         return paiementService.refundPaiement(id);
+    }
+    @GetMapping("/plateforme/solde")
+    public ResponseEntity<BigDecimal> getPlateformeSolde() {
+        BigDecimal solde = paiementService.getPlateformeSolde();
+        return ResponseEntity.ok(solde);
     }
 }

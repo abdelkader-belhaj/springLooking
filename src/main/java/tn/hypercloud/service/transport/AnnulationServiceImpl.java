@@ -3,7 +3,7 @@ package tn.hypercloud.service.transport;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tn.hypercloud.entity.transport.Annulation;
+import tn.hypercloud.entity.transport.AnnulationTransport;
 import tn.hypercloud.entity.transport.Course;
 import tn.hypercloud.entity.transport.enums.AnnulePar;
 import tn.hypercloud.entity.transport.enums.CourseStatus;
@@ -30,7 +30,7 @@ public class AnnulationServiceImpl implements IAnnulationService {
 
     @Override
     @Transactional
-    public Annulation annulerCourse(Long courseId, AnnulePar annulePar, String raison) {
+    public AnnulationTransport annulerCourse(Long courseId, AnnulePar annulePar, String raison) {
 
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Course non trouvée"));
@@ -62,15 +62,15 @@ public class AnnulationServiceImpl implements IAnnulationService {
         BigDecimal remboursementFinal = montantRemboursement.subtract(penalite);
 
         // ====================== CRÉATION DE L'ANNULATION ======================
-        Annulation annulation = new Annulation();   // ← sans builder
+        AnnulationTransport annulationTransport = new AnnulationTransport();   // ← sans builder
 
-        annulation.setCourse(course);
-        annulation.setAnnulePar(annulePar);
-        annulation.setRaison(raison != null ? raison : "Annulation par " + annulePar.name());
-        annulation.setMontantPenalite(penalite);
-        annulation.setMontantRemboursement(remboursementFinal);
+        annulationTransport.setCourse(course);
+        annulationTransport.setAnnulePar(annulePar);
+        annulationTransport.setRaison(raison != null ? raison : "Annulation par " + annulePar.name());
+        annulationTransport.setMontantPenalite(penalite);
+        annulationTransport.setMontantRemboursement(remboursementFinal);
 
-        Annulation saved = annulationRepository.save(annulation);
+        AnnulationTransport saved = annulationRepository.save(annulationTransport);
 
         // ====================== MISE À JOUR DE LA COURSE ======================
         course.setStatut(CourseStatus.CANCELLED);
@@ -87,13 +87,13 @@ public class AnnulationServiceImpl implements IAnnulationService {
 
     // ====================== CRUD DE BASE ======================
     @Override
-    public Annulation addAnnulation(Annulation annulation) {
-        return annulationRepository.save(annulation);
+    public AnnulationTransport addAnnulation(AnnulationTransport annulationTransport) {
+        return annulationRepository.save(annulationTransport);
     }
 
     @Override
-    public Annulation updateAnnulation(Annulation annulation) {
-        return annulationRepository.save(annulation);
+    public AnnulationTransport updateAnnulation(AnnulationTransport annulationTransport) {
+        return annulationRepository.save(annulationTransport);
     }
 
     @Override
@@ -102,17 +102,17 @@ public class AnnulationServiceImpl implements IAnnulationService {
     }
 
     @Override
-    public Annulation getAnnulationById(Long id) {
+    public AnnulationTransport getAnnulationById(Long id) {
         return annulationRepository.findById(id).orElse(null);
     }
 
     @Override
-    public List<Annulation> getAllAnnulations() {
+    public List<AnnulationTransport> getAllAnnulations() {
         return annulationRepository.findAll();
     }
 
     @Override
-    public List<Annulation> getAnnulationsByType(AnnulePar annulePar) {
+    public List<AnnulationTransport> getAnnulationsByType(AnnulePar annulePar) {
         return annulationRepository.findByAnnulePar(annulePar);
     }
 }

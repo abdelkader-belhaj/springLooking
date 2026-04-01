@@ -1,6 +1,8 @@
 package tn.hypercloud.controller.transport;
 
+import org.springframework.http.ResponseEntity;
 import tn.hypercloud.entity.transport.ReservationLocation;
+import tn.hypercloud.entity.transport.enums.PaiementMethode;
 import tn.hypercloud.service.transport.IReservationLocationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -52,5 +54,15 @@ public class ReservationLocationController {
     @PutMapping("/{id}/annuler")
     public ReservationLocation cancel(@PathVariable Long id) {
         return reservationService.cancelReservation(id);
+    }
+    @PostMapping("/{id}/complete")
+    public ResponseEntity<ReservationLocation> completeReservation(
+            @PathVariable Long id,
+
+            // ← MODIFICATION ICI : valeur par défaut CARD
+            @RequestParam(defaultValue = "CARD") PaiementMethode methode
+    ) {
+        ReservationLocation reservation = reservationService.completeReservation(id, methode);
+        return ResponseEntity.ok(reservation);
     }
 }

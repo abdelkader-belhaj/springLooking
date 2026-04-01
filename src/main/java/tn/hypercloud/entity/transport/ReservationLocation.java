@@ -45,6 +45,9 @@ public class ReservationLocation {
     @Column(precision = 10, scale = 2)
     private BigDecimal prixTotal;
 
+    @Column(precision = 10, scale = 2)
+    private BigDecimal montantCommission;
+
     @Enumerated(EnumType.STRING)
     private ReservationStatus statut = ReservationStatus.PENDING;
 

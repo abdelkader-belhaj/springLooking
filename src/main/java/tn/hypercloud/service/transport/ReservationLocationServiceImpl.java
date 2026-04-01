@@ -3,16 +3,16 @@ package tn.hypercloud.service.transport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tn.hypercloud.entity.transport.ReservationLocation;
-import tn.hypercloud.entity.user.User;
-import tn.hypercloud.entity.transport.VehiculeAgence;
+import tn.hypercloud.entity.transport.*;
+import tn.hypercloud.entity.transport.enums.PaiementMethode;
+import tn.hypercloud.entity.transport.enums.PaiementStatut;
 import tn.hypercloud.entity.transport.enums.ReservationStatus;
-import tn.hypercloud.entity.user.User;
-import tn.hypercloud.repository.transport.ReservationLocationRepository;
-import tn.hypercloud.repository.transport.VehiculeAgenceRepository;
+import tn.hypercloud.entity.transport.enums.TransactionType;
+import tn.hypercloud.repository.transport.*;
 import tn.hypercloud.repository.user.UserRepository;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -23,6 +23,10 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
     private final ReservationLocationRepository reservationRepository;
     private final VehiculeAgenceRepository vehiculeAgenceRepository;
     private final UserRepository userRepository;
+    private final IPaiementService paiementService;
+    private final PaiementRepository paiementRepository;
+    private final AgenceLocationRepository agenceLocationRepository;       // ← NOUVEAU
+    private final WalletTransactionRepository walletTransactionRepository; // ← NOUVEAU
 
     @Override
     @Transactional
@@ -105,5 +109,48 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
         if (res == null) throw new RuntimeException("Réservation non trouvée");
         res.setStatut(ReservationStatus.CANCELLED);
         return reservationRepository.save(res);
+    }
+    @Override
+    @Transactional
+    public ReservationLocation completeReservation(Long id, PaiementMethode methode) {
+        ReservationLocation reservation = getById(id);
+        if (reservation == null) throw new RuntimeException("Réservation non trouvée");
+        if (reservation.getStatut() == ReservationStatus.COMPLETED) {
+            throw new IllegalStateException("Réservation déjà terminée");
+        }
+
+        PaiementTransport paiementTransport = PaiementTransport.builder()
+                .reservationLocation(reservation)
+                .montantTotal(reservation.getPrixTotal())
+                .methode(methode)
+                .statut(PaiementStatut.COMPLETED)
+                .datePaiement(LocalDateTime.now())
+                .build();
+
+        paiementTransport = paiementRepository.save(paiementTransport);
+
+        // === MISE À JOUR SOLDE AGENCE + TRANSACTION ===
+        BigDecimal montantNet = paiementTransport.getMontantNet();
+        AgenceLocation agence = reservation.getVehiculeAgence().getAgence();
+
+// Protection null-safe
+        BigDecimal nouveauSolde = (agence.getSolde() != null ? agence.getSolde() : BigDecimal.ZERO)
+                .add(montantNet);
+        agence.setSolde(nouveauSolde);
+        agenceLocationRepository.save(agence);
+
+        walletTransactionRepository.save(WalletTransaction.builder()
+                .agence(agence)
+                .montant(montantNet)
+                .type(TransactionType.CREDIT_RESERVATION)
+                .description("Réservation #" + reservation.getIdReservation())
+                .paiementTransport(paiementTransport)
+                .build());
+
+        reservation.setMontantCommission(paiementTransport.getMontantCommission());
+        reservation.setStatut(ReservationStatus.COMPLETED);
+        reservation.setDateModification(LocalDateTime.now());
+
+        return reservationRepository.save(reservation);
     }
 }

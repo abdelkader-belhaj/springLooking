@@ -3,15 +3,15 @@ package tn.hypercloud.service.transport;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tn.hypercloud.entity.transport.Chauffeur;
-import tn.hypercloud.entity.transport.Course;
-import tn.hypercloud.entity.transport.Paiement;
-import tn.hypercloud.entity.transport.Vehicule;
+import tn.hypercloud.entity.transport.*;
 import tn.hypercloud.entity.transport.enums.CourseStatus;
 import tn.hypercloud.entity.transport.enums.PaiementMethode;
 import tn.hypercloud.entity.transport.enums.PaiementStatut;
+import tn.hypercloud.entity.transport.enums.TransactionType;
+import tn.hypercloud.repository.transport.ChauffeurRepository;
 import tn.hypercloud.repository.transport.CourseRepository;
 import tn.hypercloud.repository.transport.PaiementRepository;
+import tn.hypercloud.repository.transport.WalletTransactionRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,7 +24,9 @@ public class CourseServiceImpl implements ICourseService {
 
     private final CourseRepository courseRepository;
     private final PaiementRepository paiementRepository;
-    private final IDistanceService distanceService;   // ton service OSRM
+    private final IDistanceService distanceService;// ton service OSRM
+    private final ChauffeurRepository chauffeurRepository;           // ← NOUVEAU
+    private final WalletTransactionRepository walletTransactionRepository; // ← NOUVEAU
 
     @Override
     public Course addCourse(Course course) {
@@ -81,31 +83,47 @@ public class CourseServiceImpl implements ICourseService {
         Course course = getCourseById(id);
         if (course == null) return null;
 
-        // === CALCUL DU PRIX FINAL ===
+        // Calcul prix final
         IDistanceService.RouteInfo route = distanceService.calculateRoute(
-                course.getLocalisationDepart(),
-                course.getLocalisationArrivee()
-        );
-
+                course.getLocalisationDepart(), course.getLocalisationArrivee());
         BigDecimal prixFinal = calculateFinalPrice(route, course.getVehicule());
         course.setPrixFinal(prixFinal);
 
-        // === CRÉATION AUTOMATIQUE DU PAIEMENT ===
-        Paiement paiement = Paiement.builder()
+        // Création paiement (commission 20 % automatique via @PrePersist)
+        PaiementTransport paiementTransport = PaiementTransport.builder()
                 .course(course)
-                .montant(prixFinal)
-                .methode(PaiementMethode.CARD)           // tu peux le rendre dynamique plus tard
+                .montantTotal(prixFinal)
+                .methode(PaiementMethode.CARD)
                 .statut(PaiementStatut.COMPLETED)
                 .datePaiement(LocalDateTime.now())
                 .build();
 
-        paiement = paiementRepository.save(paiement);
-        course.setPaiement(paiement);
+        paiementTransport = paiementRepository.save(paiementTransport);
 
+        // === MISE À JOUR SOLDE CHAUFFEUR + TRANSACTION ===
+        BigDecimal montantNet = paiementTransport.getMontantNet();
+        Chauffeur chauffeur = course.getChauffeur();
+
+// Protection null-safe + mise à jour du solde
+        BigDecimal nouveauSolde = (chauffeur.getSolde() != null ? chauffeur.getSolde() : BigDecimal.ZERO)
+                .add(montantNet);
+        chauffeur.setSolde(nouveauSolde);
+        chauffeurRepository.save(chauffeur);
+        walletTransactionRepository.save(WalletTransaction.builder()
+                .chauffeur(chauffeur)
+                .montant(montantNet)
+                .type(TransactionType.CREDIT_COURSE)
+                .description("Course #" + course.getIdCourse())
+                .paiementTransport(paiementTransport)
+                .build());
+
+        // Mise à jour course
+        course.setPaiementTransport(paiementTransport);
+        course.setMontantCommission(paiementTransport.getMontantCommission());
         course.setStatut(CourseStatus.COMPLETED);
+
         return courseRepository.save(course);
     }
-
     private BigDecimal calculateFinalPrice(IDistanceService.RouteInfo route, Vehicule vehicule) {
         BigDecimal baseFee = new BigDecimal("5.00");
 
