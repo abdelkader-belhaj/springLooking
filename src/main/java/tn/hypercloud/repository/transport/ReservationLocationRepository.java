@@ -1,5 +1,6 @@
 package tn.hypercloud.repository.transport;
 
+import org.springframework.data.jpa.repository.Query;
 import tn.hypercloud.entity.transport.ReservationLocation;
 import tn.hypercloud.entity.transport.enums.ReservationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,8 @@ public interface ReservationLocationRepository extends JpaRepository<Reservation
             List<ReservationStatus> statuts,
             LocalDateTime dateDebut,
             LocalDateTime dateFin);
+
+    @Query("SELECT r FROM ReservationLocation r WHERE r.vehiculeAgence.idVehiculeAgence = :vehiculeId " +
+            "AND r.statut NOT IN :excluded AND r.dateDebut <= :endDate AND r.dateFin >= :startDate")
+    List<ReservationLocation> findOverlappingReservations(Long vehiculeId, LocalDateTime startDate, LocalDateTime endDate, List<ReservationStatus> excluded);
 }

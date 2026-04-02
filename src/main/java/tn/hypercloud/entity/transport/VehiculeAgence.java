@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "vehicules_agence")
@@ -58,6 +60,9 @@ public class VehiculeAgence {
     @Builder.Default
     private VehiculeStatut statut = VehiculeStatut.ACTIVE;
 
+    @OneToMany(mappedBy = "vehiculeAgence", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ReservationLocation> reservations = new ArrayList<>();
     @Column(updatable = false)
     private LocalDateTime dateCreation;
 

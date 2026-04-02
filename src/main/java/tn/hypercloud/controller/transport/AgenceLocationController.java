@@ -1,9 +1,10 @@
 package tn.hypercloud.controller.transport;
 
-import tn.hypercloud.entity.transport.AgenceLocation;
-import tn.hypercloud.service.transport.IAgenceLocationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import tn.hypercloud.entity.transport.AgenceLocation;
+import tn.hypercloud.service.transport.IAgenceLocationService;
+
 import java.util.List;
 
 @RestController
