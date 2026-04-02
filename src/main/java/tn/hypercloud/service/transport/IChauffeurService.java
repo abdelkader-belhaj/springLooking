@@ -44,4 +44,5 @@ public interface IChauffeurService {
     // ========== ASSOCIATIONS ==========
     Chauffeur affecterChauffeurAVehicule(Long idChauffeur, Long idVehicule);
     Chauffeur updatePosition(Long idChauffeur, Localisation position);
+    Chauffeur save(Chauffeur chauffeur);
 }

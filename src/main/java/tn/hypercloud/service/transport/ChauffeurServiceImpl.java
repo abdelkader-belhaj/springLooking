@@ -146,4 +146,8 @@ public class ChauffeurServiceImpl implements IChauffeurService {
         chauffeur.setPositionActuelle(position);
         return chauffeurRepository.save(chauffeur);
     }
+    @Override
+    public Chauffeur save(Chauffeur chauffeur) {
+        return chauffeurRepository.save(chauffeur);
+    }
 }

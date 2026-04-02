@@ -3,6 +3,8 @@ package tn.hypercloud.service.transport;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tn.hypercloud.controller.transport.RealTimeTransportController;
+import tn.hypercloud.dto.transport.DriverNotificationDTO;
 import tn.hypercloud.entity.transport.*;
 import tn.hypercloud.entity.transport.enums.*;
 import tn.hypercloud.repository.transport.*;
@@ -20,7 +22,7 @@ public class MatchingServiceImpl implements IMatchingService {
     private final VehiculeRepository vehiculeRepository;
     private final ChauffeurRepository chauffeurRepository;
     private final ICourseService courseService;
-
+    private final RealTimeTransportController realTimeController;
     // ====================== CRUD ======================
     @Override
     public Matching addMatching(Matching matching) {
@@ -123,7 +125,19 @@ public class MatchingServiceImpl implements IMatchingService {
         // 7. Lien bidirectionnel
         matching.setCourse(course);
         matchingRepository.save(matching);
+// === NOTIFICATION TEMPS RÉEL AU CHAUFFEUR ===
+        DriverNotificationDTO notif = DriverNotificationDTO.builder()
+                .type("COURSE_ACCEPTED")
+                .titre("✅ Course Acceptée !")
+                .message("Vous avez une nouvelle course immédiate")
+                .courseId(course.getIdCourse())
+                .data(course.getPrixFinal())           // tu peux mettre plus d'infos
+                .build();
 
+        realTimeController.sendNotificationToDriver(
+                course.getChauffeur().getIdChauffeur(),
+                notif
+        );
         return matching;
     }
 
