@@ -29,6 +29,7 @@ public class UserController {
      * Header  : Authorization: Bearer <token>
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
         return ResponseEntity.ok(
                 ApiResponse.success("Liste des users", userService.getAllUsers()));
@@ -113,6 +114,7 @@ public class UserController {
      * Postman : GET http://localhost:8080/api/users/role/ADMIN
      */
     @GetMapping("/role/{role}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getUsersByRole(
             @PathVariable Role role) {
         return ResponseEntity.ok(

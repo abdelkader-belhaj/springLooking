@@ -21,7 +21,7 @@ public class UserResponse {
 
     public UserResponse(User user) {
         this.id = user.getId();
-        this.username = user.getUsername();
+        this.username = user.getFullName();
         this.email = user.getEmail();
         this.enabled = user.isEnabled();
         this.role = user.getRole();

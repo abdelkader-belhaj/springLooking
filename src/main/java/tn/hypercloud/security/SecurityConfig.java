@@ -37,7 +37,10 @@ public class SecurityConfig {
         http
                 // Desactiver CSRF (on utilise JWT, pas de session)
                 .csrf(AbstractHttpConfigurer::disable)
-
+                //Session :
+    //Login==>Serveur crée une session et la stocke en mémoire==>Navigateur reçoit un cookie
+                //JWT(JSON Web Token)
+    //Login==>Serveur génère un token et l'envoie au client ==> Client stocke le token
                 // Autoriser les appels front (Angular) vers l'API
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
@@ -46,9 +49,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
 
                         // Routes admin uniquement
+                        //Token ==> accès routes normales Mais : accès routes admin " YES "
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
+
+
                         // Toutes les autres routes -> token obligatoire
+                        //Token ==> accès routes normales Mais : accès routes admin " NO "
                         .anyRequest().authenticated()
                 )
 

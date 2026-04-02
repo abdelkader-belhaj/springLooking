@@ -1,0 +1,47 @@
+1.Ouvrir PowerShell dans le dossier du projet
+
+Ouvrir PowerShell puis aller vers le dossier du projet Spring Boot :
+
+cd C:\place\projet
+
+2.Définir les variables d’environnement (SMTP Gmail)
+
+Configurer l’email et le mot de passe d’application Gmail :
+
+$env:MAIL_USERNAME="bjgadour133@gmail.com"
+$env:MAIL_PASSWORD="shgrqmmjlcxxuivq"
+
+
+3.Lancer l’application Spring Boot
+
+Exécuter la commande suivante :
+
+.\mvnw.cmd spring-boot:run
+
+
+---------------------
+
+POST : http://localhost:8080/api/auth/forgot-password
+
+{
+  "email": "bjgadour133@gmail.com"
+}
+
+
+POST: http://localhost:8080/api/auth/reset-password
+
+
+
+{
+  "token": "49944e059dca49f69a9c46450a55cb77",
+  "newPassword": "admin321",
+  "confirmPassword": admin321
+}
+
+
+
+
+dans la base de donner : 
+
+INSERT INTO `user` (`id`, `bio`, `created_at`, `email`, `enabled`, `password`, `phone`, `profile_image`, `role`, `updated_at`, `username`, `face_detector_backend`, `face_embedding`, `face_model_name`, `face_threshold`, `requested_role`, `role_request_status`, `reset_password_token`, `reset_password_token_expiry`) VALUES
+(35, NULL, '2026-04-02 18:00:51.000000', 'bjgadour133@gmail.com', b'1', '$2a$10$rXrR6CvJ7oYnMOir8yXLZ.VGBW.7dm258etKwyFhYBp7lG0kenN8W', NULL, NULL, 'HEBERGEUR', '2026-04-02 18:19:00.000000', 'gougou07', NULL, NULL, NULL, NULL, NULL, 'APPROVED', NULL, NULL);

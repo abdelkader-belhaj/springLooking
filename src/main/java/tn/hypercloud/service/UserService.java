@@ -56,10 +56,23 @@ public class UserService {
         User user = userRepository.findById(safeId)
                 .orElseThrow(() -> new RuntimeException("User non trouve avec id: " + id));
 
-        // Modifier seulement les champs non null ou false
-        if (request.getUsername() != null) user.setUsername(request.getUsername());
-        if (request.getEmail()    != null) user.setEmail(request.getEmail());
-        if (request.getRole()     != null) user.setRole(request.getRole());
+        if (request.getUsername() != null && !request.getUsername().equals(user.getFullName())) {
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new RuntimeException("Username deja utilise : " + request.getUsername());
+            }
+            user.setUsername(request.getUsername());
+        }
+
+        if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new RuntimeException("Email deja utilise : " + request.getEmail());
+            }
+            user.setEmail(request.getEmail());
+        }
+
+        if (request.getRole() != null) {
+            user.setRole(request.getRole());
+        }
 
         User userToSave = Objects.requireNonNull(user, "user must not be null");
         return UserResponse.fromEntity(userRepository.save(userToSave));

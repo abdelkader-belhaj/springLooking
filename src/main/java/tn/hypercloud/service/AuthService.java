@@ -3,23 +3,33 @@ package tn.hypercloud.service;
 
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import tn.hypercloud.entity.user.PasswordResetToken;
 import tn.hypercloud.entity.user.User;
+import tn.hypercloud.payload.request.ForgotPasswordRequest;
 import tn.hypercloud.payload.request.LoginRequest;
 import tn.hypercloud.payload.request.RegisterRequest;
+import tn.hypercloud.payload.request.ResetPasswordRequest;
 import tn.hypercloud.payload.response.AuthResponse;
 import tn.hypercloud.payload.response.UserResponse;
+import tn.hypercloud.repository.user.PasswordResetTokenRepository;
 import tn.hypercloud.repository.user.UserRepository;
 import tn.hypercloud.security.JwtUtils;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final PasswordResetEmailService passwordResetEmailService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
@@ -92,5 +102,54 @@ public class AuthService {
         response.setExpiresIn(jwtUtils.getExpirationMs());
         response.setUser(UserResponse.fromEntity(user));
         return response;
+    }
+
+    /**
+     * DEMANDE DE MOT DE PASSE OUBLIE
+     */
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+            String token = UUID.randomUUID().toString().replace("-", "");
+            LocalDateTime expiry = LocalDateTime.now().plusMinutes(30);
+
+            PasswordResetToken resetToken = passwordResetTokenRepository.findByUser_Id(user.getId())
+                    .map(existing -> {
+                        existing.setToken(token);
+                        existing.setExpiryDate(expiry);
+                        return existing;
+                    })
+                    .orElseGet(() -> PasswordResetToken.builder()
+                            .token(token)
+                            .user(user)
+                            .expiryDate(expiry)
+                            .build());
+
+            passwordResetTokenRepository.save(resetToken);
+            passwordResetEmailService.sendResetPasswordEmail(user, token);
+        });
+    }
+
+    /**
+     * REINITIALISATION DU MOT DE PASSE
+     */
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> new RuntimeException("Token invalide"));
+
+        if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            passwordResetTokenRepository.delete(resetToken);
+            throw new RuntimeException("Token expire");
+        }
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Les mots de passe ne correspondent pas");
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        passwordResetTokenRepository.delete(resetToken);
     }
 }
