@@ -1,7 +1,10 @@
 package tn.hypercloud.service.transport;
 
+import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.entity.transport.Chauffeur;
 import tn.hypercloud.entity.transport.Course;
+import tn.hypercloud.entity.transport.DemandeCourse;
+import tn.hypercloud.entity.transport.Matching;
 import tn.hypercloud.entity.transport.enums.CourseStatus;
 
 import java.util.List;
@@ -16,4 +19,7 @@ public interface ICourseService {
     Course updateStatut(Long id, CourseStatus statut);
     Course startCourse(Long id);
     Course completeCourse(Long id);
+    @Transactional
+    List<Matching> createProximityMatchings(DemandeCourse demande, double maxDistanceKm);
+
 }

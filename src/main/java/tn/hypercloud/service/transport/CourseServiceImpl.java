@@ -4,19 +4,14 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.entity.transport.*;
-import tn.hypercloud.entity.transport.enums.CourseStatus;
-import tn.hypercloud.entity.transport.enums.PaiementMethode;
-import tn.hypercloud.entity.transport.enums.PaiementStatut;
-import tn.hypercloud.entity.transport.enums.TransactionType;
-import tn.hypercloud.repository.transport.ChauffeurRepository;
-import tn.hypercloud.repository.transport.CourseRepository;
-import tn.hypercloud.repository.transport.PaiementRepository;
-import tn.hypercloud.repository.transport.WalletTransactionRepository;
+import tn.hypercloud.entity.transport.enums.*;
+import tn.hypercloud.repository.transport.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -25,8 +20,9 @@ public class CourseServiceImpl implements ICourseService {
     private final CourseRepository courseRepository;
     private final PaiementRepository paiementRepository;
     private final IDistanceService distanceService;// ton service OSRM
-    private final ChauffeurRepository chauffeurRepository;           // ← NOUVEAU
-    private final WalletTransactionRepository walletTransactionRepository; // ← NOUVEAU
+    private final ChauffeurRepository chauffeurRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
+    private final MatchingRepository matchingRepository;
 
     @Override
     public Course addCourse(Course course) {
@@ -135,5 +131,63 @@ public class CourseServiceImpl implements ICourseService {
 
         return baseFee.add(distanceCost).add(timeCost)
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+    // ====================== CALCUL DISTANCE (Haversine) ======================
+    private double calculateHaversineDistance(BigDecimal lat1, BigDecimal lon1, BigDecimal lat2, BigDecimal lon2) {
+        final int EARTH_RADIUS = 6371; // km
+        double dLat = Math.toRadians(lat2.subtract(lat1).doubleValue());
+        double dLon = Math.toRadians(lon2.subtract(lon1).doubleValue());
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1.doubleValue())) * Math.cos(Math.toRadians(lat2.doubleValue())) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return EARTH_RADIUS * c;
+    }
+
+    // ====================== NOUVEAU MATCHING PAR PROXIMITÉ ======================
+    @Transactional
+    public List<Matching> createProximityMatchings(DemandeCourse demande, double maxDistanceKm) {
+        if (demande.getLocalisationDepart() == null ||
+                demande.getLocalisationDepart().getLatitude() == null ||
+                demande.getLocalisationDepart().getLongitude() == null) {
+            throw new IllegalArgumentException("Localisation de départ requise pour le matching");
+        }
+
+        Localisation pickup = demande.getLocalisationDepart();
+
+        // Chauffeurs disponibles + approuvés
+        List<Chauffeur> candidates = chauffeurRepository.findByDisponibiliteAndStatut(
+                DisponibiliteStatut.AVAILABLE, ChauffeurStatut.ACTIVE);
+
+        // Filtre + trie par distance réelle
+        List<Chauffeur> nearbyDrivers = candidates.stream()
+                .filter(ch -> ch.getPositionActuelle() != null)
+                .filter(ch -> {
+                    Localisation driverPos = ch.getPositionActuelle();
+                    double distance = calculateHaversineDistance(
+                            pickup.getLatitude(), pickup.getLongitude(),
+                            driverPos.getLatitude(), driverPos.getLongitude());
+                    return distance <= maxDistanceKm;
+                })
+                .sorted((c1, c2) -> {
+                    double dist1 = calculateHaversineDistance(pickup.getLatitude(), pickup.getLongitude(),
+                            c1.getPositionActuelle().getLatitude(), c1.getPositionActuelle().getLongitude());
+                    double dist2 = calculateHaversineDistance(pickup.getLatitude(), pickup.getLongitude(),
+                            c2.getPositionActuelle().getLatitude(), c2.getPositionActuelle().getLongitude());
+                    return Double.compare(dist1, dist2);
+                })
+                .limit(5) // Top 5 plus proches
+                .collect(Collectors.toList());
+
+        // Création des Matching
+        List<Matching> matchings = nearbyDrivers.stream()
+                .map(driver -> Matching.builder()
+                        .demande(demande)
+                        .chauffeur(driver)
+                        .statut(MatchingStatut.PROPOSED)
+                        .build())
+                .collect(Collectors.toList());
+
+        return matchingRepository.saveAll(matchings);
     }
 }

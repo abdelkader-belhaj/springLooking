@@ -19,6 +19,7 @@ public class MatchingServiceImpl implements IMatchingService {
     private final CourseRepository courseRepository;
     private final VehiculeRepository vehiculeRepository;
     private final ChauffeurRepository chauffeurRepository;
+    private final ICourseService courseService;
 
     // ====================== CRUD ======================
     @Override
@@ -143,30 +144,17 @@ public class MatchingServiceImpl implements IMatchingService {
     /**
      * Broadcast uniquement aux chauffeurs qui ont AU MOINS un véhicule actif
      */
+    @Override
     @Transactional
     public void proposeMatchingsToAvailableDrivers(DemandeCourse demande) {
         if (demande.getStatut() != DemandeStatus.MATCHING) {
             throw new IllegalStateException("La demande doit être en statut MATCHING");
         }
 
-        List<Chauffeur> eligibleDrivers = chauffeurRepository.findByDisponibilite(DisponibiliteStatut.AVAILABLE)
-                .stream()
-                .filter(c -> c.getStatut() == ChauffeurStatut.ACTIVE)                    // chauffeur actif
-                .filter(c -> !vehiculeRepository.findByChauffeur(c).isEmpty())          // a au moins 1 véhicule
-                .filter(c -> vehiculeRepository.findByChauffeur(c).stream()
-                        .anyMatch(v -> v.getStatut() == VehiculeStatut.ACTIVE))         // au moins 1 véhicule ACTIF
-                .toList();
+        // On délègue au CourseService qui contient déjà la logique de proximité
+        courseService.createProximityMatchings(demande, 10.0);   // max 10 km
 
-        for (Chauffeur driver : eligibleDrivers) {
-            Matching m = Matching.builder()
-                    .demande(demande)
-                    .chauffeur(driver)
-                    .statut(MatchingStatut.PROPOSED)
-                    .build();
-            matchingRepository.save(m);
-        }
-
-        System.out.println("✅ Broadcast terminé : " + eligibleDrivers.size() + " chauffeurs éligibles (avec véhicule actif)");
+        System.out.println("✅ Matching par proximité terminé pour la demande " + demande.getIdDemande());
     }
 }
 

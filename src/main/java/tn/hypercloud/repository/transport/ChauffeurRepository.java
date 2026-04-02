@@ -15,4 +15,5 @@ public interface ChauffeurRepository extends JpaRepository<Chauffeur, Long> {
     List<Chauffeur> findByStatut(ChauffeurStatut statut);
     List<Chauffeur> findByDisponibilite(DisponibiliteStatut disponibilite);
     boolean existsByNumeroLicence(String numeroLicence);
+    List<Chauffeur> findByDisponibiliteAndStatut(DisponibiliteStatut disponibilite, ChauffeurStatut statut);
 }

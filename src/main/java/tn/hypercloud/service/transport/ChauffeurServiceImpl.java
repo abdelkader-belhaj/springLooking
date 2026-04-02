@@ -3,6 +3,7 @@ package tn.hypercloud.service.transport;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.transport.Chauffeur;
+import tn.hypercloud.entity.transport.Localisation;
 import tn.hypercloud.entity.transport.Vehicule;
 import tn.hypercloud.entity.transport.enums.ChauffeurStatut;
 import tn.hypercloud.entity.transport.enums.DisponibiliteStatut;
@@ -133,5 +134,16 @@ public class ChauffeurServiceImpl implements IChauffeurService {
         vehicule.setChauffeur(chauffeur);
         vehiculeRepository.save(vehicule);
         return chauffeur;
+    }
+    @Override
+    public Chauffeur updatePosition(Long idChauffeur, Localisation position) {
+        Chauffeur chauffeur = getChauffeurById(idChauffeur);
+        if (chauffeur == null) {
+            throw new RuntimeException("Chauffeur non trouvé");
+        }
+
+        // Mise à jour de la position (cascade = ALL donc JPA gère tout seul)
+        chauffeur.setPositionActuelle(position);
+        return chauffeurRepository.save(chauffeur);
     }
 }

@@ -1,8 +1,10 @@
 package tn.hypercloud.controller.transport;
 
 import lombok.AllArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tn.hypercloud.entity.transport.Chauffeur;
+import tn.hypercloud.entity.transport.Localisation;
 import tn.hypercloud.service.transport.IChauffeurService;
 
 import java.util.List;
@@ -82,5 +84,13 @@ public class ChauffeurController {
     @PutMapping("/{idChauffeur}/affecter-vehicule/{idVehicule}")
     public Chauffeur affecterChauffeurAVehicule(@PathVariable Long idChauffeur, @PathVariable Long idVehicule) {
         return chauffeurService.affecterChauffeurAVehicule(idChauffeur, idVehicule);
+    }
+    @PutMapping("/{id}/position")
+    public ResponseEntity<Chauffeur> updateDriverPosition(
+            @PathVariable Long id,
+            @RequestBody Localisation position) {
+
+        Chauffeur updated = chauffeurService.updatePosition(id, position);
+        return ResponseEntity.ok(updated);
     }
 }

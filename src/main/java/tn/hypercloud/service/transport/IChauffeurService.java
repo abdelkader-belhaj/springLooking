@@ -1,6 +1,7 @@
 package tn.hypercloud.service.transport;
 
 import tn.hypercloud.entity.transport.Chauffeur;
+import tn.hypercloud.entity.transport.Localisation;
 import tn.hypercloud.entity.transport.enums.DisponibiliteStatut;
 
 import java.util.List;
@@ -42,4 +43,5 @@ public interface IChauffeurService {
 
     // ========== ASSOCIATIONS ==========
     Chauffeur affecterChauffeurAVehicule(Long idChauffeur, Long idVehicule);
+    Chauffeur updatePosition(Long idChauffeur, Localisation position);
 }

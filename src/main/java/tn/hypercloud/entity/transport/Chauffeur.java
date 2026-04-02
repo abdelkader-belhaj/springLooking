@@ -48,7 +48,13 @@ public class Chauffeur {
     @Column(name = "solde", precision = 10, scale = 2, nullable = false, columnDefinition = "DECIMAL(10,2) DEFAULT 0.00")
     @Builder.Default
     private BigDecimal solde = BigDecimal.ZERO;
+
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "id_position_actuelle", nullable = true)
+    private Localisation positionActuelle;
+
     @Column(updatable = false)
+
     private LocalDateTime dateCreation;
 
     private LocalDateTime dateModification;
