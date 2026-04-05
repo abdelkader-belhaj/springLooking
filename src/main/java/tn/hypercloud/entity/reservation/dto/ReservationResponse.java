@@ -4,11 +4,12 @@ import lombok.Builder;
 import lombok.Data;
 import tn.hypercloud.entity.reservation.Panier;
 import tn.hypercloud.entity.reservation.PaiementVol;
-
+import tn.hypercloud.entity.reservation.ReservationVol;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Data @Builder
+@Data
+@Builder
 public class ReservationResponse {
     private Integer id;
     private String reference;
@@ -20,4 +21,7 @@ public class ReservationResponse {
     private BigDecimal prixTotal;
     private LocalDateTime dateReservation;
     private PaiementVol.StatutPaiement statutPaiement;
+
+    // ← NOUVEAU
+    private ReservationVol.StatutReservation statutReservation;
 }

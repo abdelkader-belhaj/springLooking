@@ -19,11 +19,16 @@ public class VolService {
 
     private final VolRepository volRepo;
     private final UserRepository userRepo;
-    // SocieteRepository supprimé — plus nécessaire
+
+    // ==============================
+    // CREATE
+    // ==============================
 
     public VolResponse create(String email, VolRequest req) {
+
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+
         Vol vol = Vol.builder()
                 .user(user)
                 .numero(req.getNumero())
@@ -34,12 +39,23 @@ public class VolService {
                 .prix(req.getPrix())
                 .places(req.getPlaces())
                 .build();
+
         return toResponse(volRepo.save(vol));
     }
 
-    public VolResponse update(Integer id, VolRequest req) {
+    // ==============================
+    // UPDATE sécurisé 🔐
+    // ==============================
+
+    public VolResponse update(Integer id, String email, VolRequest req) {
+
         Vol vol = volRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vol introuvable"));
+
+        if (!vol.getUser().getEmail().equals(email)) {
+            throw new RuntimeException("Accès refusé");
+        }
+
         vol.setNumero(req.getNumero());
         vol.setDepart(req.getDepart());
         vol.setArrivee(req.getArrivee());
@@ -47,12 +63,29 @@ public class VolService {
         vol.setHeureDepart(req.getHeureDepart());
         vol.setPrix(req.getPrix());
         vol.setPlaces(req.getPlaces());
+
         return toResponse(volRepo.save(vol));
     }
 
-    public void delete(Integer id) {
-        volRepo.deleteById(id);
+    // ==============================
+    // DELETE sécurisé 🔐
+    // ==============================
+
+    public void delete(Integer id, String email) {
+
+        Vol vol = volRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Vol introuvable"));
+
+        if (!vol.getUser().getEmail().equals(email)) {
+            throw new RuntimeException("Accès refusé");
+        }
+
+        volRepo.delete(vol);
     }
+
+    // ==============================
+    // GET
+    // ==============================
 
     public VolResponse getById(Integer id) {
         return toResponse(volRepo.findById(id)
@@ -60,22 +93,29 @@ public class VolService {
     }
 
     public List<VolResponse> getAll() {
-        return volRepo.findAll().stream()
+        return volRepo.findAll()
+                .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
-    // Remplace getBySociete — maintenant par userId
     public List<VolResponse> getByUser(Long userId) {
-        return volRepo.findByUserId(userId).stream()
+        return volRepo.findByUserId(userId)
+                .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     public List<VolResponse> search(String depart, String arrivee, LocalDate date) {
         return volRepo.findByDepartAndArriveeAndDateDepart(depart, arrivee, date)
-                .stream().map(this::toResponse).collect(Collectors.toList());
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
+
+    // ==============================
+    // MAPPER
+    // ==============================
 
     public VolResponse toResponse(Vol v) {
         return VolResponse.builder()

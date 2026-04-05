@@ -1,7 +1,5 @@
 package tn.hypercloud.entity.reservation.service;
 
-
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.reservation.dto.PaiementRequest;
@@ -30,7 +28,11 @@ public class ReservationVolService {
     private final PaiementVolRepository paiementRepo;
     private final VolService volService;
 
-    // ---- CRÉER RÉSERVATION ----
+    // ============================================================
+    //  CLIENT : CRÉER RÉSERVATION
+    //  ✅ Ne décrémente PAS les places ici
+    //  Les places sont décrémentées uniquement au paiement réussi
+    // ============================================================
     public ReservationResponse creer(String email, ReservationRequest req) {
         User touriste = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
@@ -38,6 +40,7 @@ public class ReservationVolService {
         Vol volAller = volRepo.findById(req.getVolAllerId())
                 .orElseThrow(() -> new RuntimeException("Vol aller introuvable"));
 
+        // Vérification places disponibles (sans décrémenter)
         if (volAller.getPlaces() < req.getNbPassagers())
             throw new RuntimeException("Places insuffisantes sur le vol aller");
 
@@ -53,14 +56,6 @@ public class ReservationVolService {
         BigDecimal prix = volAller.getPrix().multiply(BigDecimal.valueOf(req.getNbPassagers()));
         if (volRetour != null)
             prix = prix.add(volRetour.getPrix().multiply(BigDecimal.valueOf(req.getNbPassagers())));
-
-        // Décrémenter places
-        volAller.setPlaces(volAller.getPlaces() - req.getNbPassagers());
-        volRepo.save(volAller);
-        if (volRetour != null) {
-            volRetour.setPlaces(volRetour.getPlaces() - req.getNbPassagers());
-            volRepo.save(volRetour);
-        }
 
         // Référence unique
         String ref = "TUN" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
@@ -78,7 +73,9 @@ public class ReservationVolService {
         return toResponse(reservationRepo.save(res));
     }
 
-    // ---- MES RÉSERVATIONS ----
+    // ============================================================
+    //  CLIENT : VOIR MES RÉSERVATIONS
+    // ============================================================
     public List<ReservationResponse> mesReservations(String email) {
         User touriste = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
@@ -86,48 +83,168 @@ public class ReservationVolService {
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ---- ANNULER ----
+    // ============================================================
+    //  CLIENT : ANNULER UNE RÉSERVATION
+    //  ✅ Remet les places SEULEMENT si la réservation était payée
+    //  Si en_attente → aucune place n'avait été décrémentée
+    // ============================================================
     public void annuler(String email, Integer reservationId) {
         ReservationVol res = reservationRepo.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
+
         if (!res.getTouriste().getEmail().equals(email))
             throw new RuntimeException("Accès refusé");
 
-        // Remettre les places
-        Vol volAller = res.getVolAller();
-        volAller.setPlaces(volAller.getPlaces() + res.getNbPassagers());
-        volRepo.save(volAller);
-        if (res.getVolRetour() != null) {
-            Vol volRetour = res.getVolRetour();
-            volRetour.setPlaces(volRetour.getPlaces() + res.getNbPassagers());
-            volRepo.save(volRetour);
+        // Remettre les places seulement si la réservation était payée
+        boolean estPayee = res.getPaiement() != null &&
+                res.getPaiement().getStatut() == PaiementVol.StatutPaiement.paye;
+
+        if (estPayee) {
+            Vol volAller = res.getVolAller();
+            volAller.setPlaces(volAller.getPlaces() + res.getNbPassagers());
+            volRepo.save(volAller);
+
+            if (res.getVolRetour() != null) {
+                Vol volRetour = res.getVolRetour();
+                volRetour.setPlaces(volRetour.getPlaces() + res.getNbPassagers());
+                volRepo.save(volRetour);
+            }
         }
 
         reservationRepo.delete(res);
     }
 
-    // ---- PAIEMENT STATIQUE (à remplacer par Flouci/Stripe) ----
+    // ============================================================
+    //  CLIENT : PAYER UNE RÉSERVATION
+    //  ✅ Décrémente les places ICI si paiement réussi
+    //  ✅ Supprime la réservation si paiement échoué
+    //  ✅ Empêche le double paiement
+    //  Pour brancher Flouci : remplacer "boolean paiementReussi = true"
+    //  par l'appel HTTP Flouci — tout le reste reste identique
+    // ============================================================
     public ReservationResponse payer(String email, PaiementRequest req) {
         ReservationVol res = reservationRepo.findById(req.getReservationId())
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
+
         if (!res.getTouriste().getEmail().equals(email))
             throw new RuntimeException("Accès refusé");
+
+        // Empêcher double paiement
+        if (res.getPaiement() != null &&
+                res.getPaiement().getStatut() == PaiementVol.StatutPaiement.paye)
+            throw new RuntimeException("Réservation déjà payée");
+
+        // -------------------------------------------------------
+        // TODO FLOUCI : remplacer cette ligne par l'appel Flouci
+        // FlouciResponse flouciRes = flouciClient.initierPaiement(res.getPrixTotal(), "TND", res.getReference());
+        // boolean paiementReussi = flouciRes.getStatut().equals("SUCCESS");
+        // String referenceTx = flouciRes.getPaymentId();
+        // -------------------------------------------------------
+        boolean paiementReussi = true;
+        String referenceTx = "TX-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        PaiementVol.StatutPaiement statut = paiementReussi
+                ? PaiementVol.StatutPaiement.paye
+                : PaiementVol.StatutPaiement.echec;
 
         PaiementVol paiement = PaiementVol.builder()
                 .reservation(res)
                 .methode(req.getMethode())
                 .montant(res.getPrixTotal())
-                .referenceTx("TX-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .statut(PaiementVol.StatutPaiement.paye)   // statique → toujours succès
+                .referenceTx(referenceTx)
+                .statut(statut)
                 .datePaiement(LocalDateTime.now())
                 .build();
 
         paiementRepo.save(paiement);
         res.setPaiement(paiement);
+
+        if (paiementReussi) {
+            // Décrémenter les places seulement si paiement ok
+            Vol volAller = res.getVolAller();
+            if (volAller.getPlaces() < res.getNbPassagers())
+                throw new RuntimeException("Plus de places disponibles sur le vol aller");
+
+            volAller.setPlaces(volAller.getPlaces() - res.getNbPassagers());
+            volRepo.save(volAller);
+
+            if (res.getVolRetour() != null) {
+                Vol volRetour = res.getVolRetour();
+                if (volRetour.getPlaces() < res.getNbPassagers())
+                    throw new RuntimeException("Plus de places disponibles sur le vol retour");
+                volRetour.setPlaces(volRetour.getPlaces() - res.getNbPassagers());
+                volRepo.save(volRetour);
+            }
+
+            return toResponse(reservationRepo.save(res));
+
+        } else {
+            // Paiement échoué → supprimer la réservation
+            reservationRepo.delete(res);
+            throw new RuntimeException("Paiement échoué, réservation annulée");
+        }
+    }
+
+    // ============================================================
+    //  SOCIÉTÉ : VOIR TOUTES LES RÉSERVATIONS
+    // ============================================================
+    public List<ReservationResponse> toutesLesReservations() {
+        return reservationRepo.findAll()
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    // ============================================================
+    //  SOCIÉTÉ : MODIFIER LE STATUT D'UNE RÉSERVATION
+    //  Valeurs acceptées : en_attente, paye, echec
+    // ============================================================
+    public ReservationResponse modifierStatut(Integer reservationId, String nouveauStatut) {
+        ReservationVol res = reservationRepo.findById(reservationId)
+                .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
+
+        if (res.getPaiement() == null)
+            throw new RuntimeException("Aucun paiement associé à cette réservation");
+
+        try {
+            PaiementVol.StatutPaiement statut = PaiementVol.StatutPaiement.valueOf(nouveauStatut);
+            res.getPaiement().setStatut(statut);
+            paiementRepo.save(res.getPaiement());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Statut invalide. Valeurs acceptées : en_attente, paye, echec");
+        }
+
         return toResponse(reservationRepo.save(res));
     }
 
-    // ---- MAPPER ----
+    // ============================================================
+    //  SOCIÉTÉ : SUPPRIMER UNE RÉSERVATION
+    //  ✅ Restitue les places si la réservation était payée
+    // ============================================================
+    public void supprimerReservation(Integer reservationId) {
+        ReservationVol res = reservationRepo.findById(reservationId)
+                .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
+
+        // Restituer les places si la réservation était payée
+        boolean estPayee = res.getPaiement() != null &&
+                res.getPaiement().getStatut() == PaiementVol.StatutPaiement.paye;
+
+        if (estPayee) {
+            Vol volAller = res.getVolAller();
+            volAller.setPlaces(volAller.getPlaces() + res.getNbPassagers());
+            volRepo.save(volAller);
+
+            if (res.getVolRetour() != null) {
+                Vol volRetour = res.getVolRetour();
+                volRetour.setPlaces(volRetour.getPlaces() + res.getNbPassagers());
+                volRepo.save(volRetour);
+            }
+        }
+
+        reservationRepo.delete(res);
+    }
+
+    // ============================================================
+    //  MAPPER
+    // ============================================================
     private ReservationResponse toResponse(ReservationVol r) {
         PaiementVol.StatutPaiement statut = (r.getPaiement() != null)
                 ? r.getPaiement().getStatut()
@@ -145,9 +262,5 @@ public class ReservationVolService {
                 .dateReservation(r.getDateReservation())
                 .statutPaiement(statut)
                 .build();
-    }
-    public List<ReservationResponse> toutesLesReservations() {
-        return reservationRepo.findAll()
-                .stream().map(this::toResponse).collect(Collectors.toList());
     }
 }
