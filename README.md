@@ -17,9 +17,13 @@ python -m venv .venv
    
 .\.venv\Scripts\Activate.ps1
 
-4) Installer les dépendances
+3) Installer les dépendances
+
+
 python -m pip install --upgrade pip
+
+
 pip install -r requirements.txt
 
-5) Lancer l'API
+4) Lancer l'API
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --env-file .env
