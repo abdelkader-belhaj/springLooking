@@ -25,15 +25,17 @@ public class DemandeCourse {
     @ManyToOne
             (fetch = FetchType.LAZY)
     @JoinColumn(name = "id_client", nullable = false)
-    //@JsonIgnore
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User client;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_localisation_depart", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Localisation localisationDepart;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_localisation_arrivee", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Localisation localisationArrivee;
 
     @Enumerated(EnumType.STRING)
@@ -54,7 +56,7 @@ public class DemandeCourse {
     private LocalDateTime dateModification;
 
     @OneToOne(mappedBy = "demande", fetch = FetchType.LAZY)
-    @JsonIgnore
+    @JsonIgnoreProperties("demande")
     private Course course;
 
     @PrePersist

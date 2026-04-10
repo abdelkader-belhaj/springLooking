@@ -2,6 +2,7 @@ package tn.hypercloud.controller.transport;
 
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import tn.hypercloud.dto.transport.MatchingDriverCardDTO;
 import tn.hypercloud.entity.transport.Course;
 import tn.hypercloud.entity.transport.Matching;
 import tn.hypercloud.service.transport.*;
@@ -52,5 +53,20 @@ public class MatchingController {
     @PutMapping("/{id}/rejeter")
     public Matching rejectMatching(@PathVariable Long id) {
         return matchingService.rejectMatching(id);
+    }
+
+    @GetMapping("/chauffeur/{chauffeurId}")
+    public List<Matching> getMatchingsByChauffeurId(@PathVariable Long chauffeurId) {
+        return matchingService.getMatchingsByChauffeurId(chauffeurId);
+    }
+    // MatchingController
+    @GetMapping("/chauffeur/{chauffeurId}/cards")
+    public List<MatchingDriverCardDTO> getMatchingCardsByChauffeur(@PathVariable Long chauffeurId) {
+        return matchingService.getMatchingCardsByChauffeurId(chauffeurId);
+    }
+
+    @GetMapping("/{id}/details")
+    public MatchingDriverCardDTO getMatchingDetails(@PathVariable Long id) {
+        return matchingService.getMatchingCardById(id);
     }
 }

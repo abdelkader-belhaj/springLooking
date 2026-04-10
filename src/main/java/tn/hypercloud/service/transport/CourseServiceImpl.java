@@ -55,8 +55,8 @@ public class CourseServiceImpl implements ICourseService {
     }
 
     @Override
-    public List<Course> getCoursesByChauffeur(Chauffeur chauffeur) {
-        return courseRepository.findByChauffeur(chauffeur);
+    public List<Course> getCoursesByChauffeur(Long chauffeurId) {
+        return courseRepository.findByChauffeur_IdChauffeur(chauffeurId);
     }
 
     @Override
@@ -189,5 +189,9 @@ public class CourseServiceImpl implements ICourseService {
                 .collect(Collectors.toList());
 
         return matchingRepository.saveAll(matchings);
+    }
+    @Override
+    public List<Course> getCoursesByClient(Long clientId) {
+        return courseRepository.findByDemande_Client_Id(clientId);
     }
 }

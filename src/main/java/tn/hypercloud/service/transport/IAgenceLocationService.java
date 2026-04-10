@@ -15,4 +15,5 @@ public interface IAgenceLocationService {
     // Approbation par l'admin
     AgenceLocation approveAgence(Long id);
     AgenceLocation deactivateAgence(Long id);
+    AgenceLocation getAgenceByUtilisateurId(Long userId);
 }

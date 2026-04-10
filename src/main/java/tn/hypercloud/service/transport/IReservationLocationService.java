@@ -29,6 +29,7 @@ public interface IReservationLocationService {
     void checkOutVehicle(Long id, List<String> photoUrls); // retour
     boolean isVehicleAvailable(Long vehiculeId, LocalDateTime start, LocalDateTime end);
 
-
+    List<ReservationLocation> getReservationsByAgence(Long agenceId);
+    ReservationLocation holdDeposit(Long id, String mode);
 
 }

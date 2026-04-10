@@ -10,8 +10,11 @@ import tn.hypercloud.repository.transport.*;
 import tn.hypercloud.repository.user.UserRepository;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Base64;
 import java.util.List;
 
 @Service
@@ -27,7 +30,9 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
     private final WalletTransactionRepository walletTransactionRepository; // comme il existe
     private final RentalContractRepository contractRepository;
     private final PdfService pdfService;
-
+    private static final Path LICENSE_UPLOAD_DIR = Path.of("uploads", "licenses");
+    private static final Path SIGNATURE_UPLOAD_DIR = Path.of("uploads", "signatures");
+    private static final Path ETAT_LIEUX_UPLOAD_DIR = Path.of("uploads", "etat-lieux");
     @Override
     @Transactional
     public ReservationLocation createReservation(ReservationLocation reservation) {
@@ -71,9 +76,9 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
         BigDecimal prixTotal = reservation.getVehiculeAgence().getPrixKm()
                 .multiply(BigDecimal.valueOf(days));
         reservation.setPrixTotal(prixTotal);
+        reservation.setDepositStatus(DepositStatus.PENDING);
 
-        reservation.setStatut(ReservationStatus.PENDING);
-
+        reservation.setStatut(ReservationStatus.KYC_PENDING);
         return reservationRepository.save(reservation);
     }
     @Override
@@ -106,10 +111,23 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
     public ReservationLocation confirmReservation(Long id) {
         ReservationLocation res = getById(id);
         if (res == null) throw new RuntimeException("Réservation non trouvée");
+
+        if (res.getDepositStatus() != DepositStatus.HELD) {
+            throw new IllegalStateException("La caution doit être HELD avant confirmation");
+        }
+
+        if (res.getStatut() != ReservationStatus.DEPOSIT_HELD
+                && res.getStatut() != ReservationStatus.CONTRACT_SIGNED) {
+            throw new IllegalStateException("Réservation non prête pour confirmation");
+        }
+
+        if (res.getStatut() == ReservationStatus.CONFIRMED) {
+            return res; // idempotent
+        }
+
         res.setStatut(ReservationStatus.CONFIRMED);
         return reservationRepository.save(res);
     }
-
     @Override
     @Transactional
     public ReservationLocation cancelReservation(Long id) {
@@ -166,15 +184,23 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
     }
 
     @Override
+    @Transactional
     public ReservationLocation uploadLicense(Long id, String numeroPermis, String licenseImageUrl, LocalDateTime expiry) {
         ReservationLocation res = reservationRepository.findById(id).orElseThrow();
+
+        String storedLicensePath = saveBase64ImageIfNeeded(
+                licenseImageUrl,
+                LICENSE_UPLOAD_DIR,
+                "license_" + id
+        );
+
         res.setNumeroPermis(numeroPermis);
-        res.setLicenseImageUrl(licenseImageUrl);
+        res.setLicenseImageUrl(storedLicensePath); // chemin court en DB
         res.setLicenseExpiryDate(expiry);
         res.setLicenseStatus(LicenseStatus.PENDING);
+
         return reservationRepository.save(res);
     }
-
     @Override
     @Transactional
     public ReservationLocation approveLicense(Long id, boolean approved, String reason) {
@@ -182,7 +208,18 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
 
         if (approved) {
             res.setLicenseStatus(LicenseStatus.APPROVED);
+
+            // Contrat prêt à signer côté client
             res.setStatut(ReservationStatus.DEPOSIT_HELD);
+
+            // La caution est toujours en attente à ce stade
+            if (res.getDepositStatus() == null) {
+                res.setDepositStatus(DepositStatus.PENDING);
+            }
+
+            if (res.getDepositAmount() == null) {
+                res.setDepositAmount(BigDecimal.ZERO);
+            }
 
             String pdfPath = pdfService.generateContractPdf(res);
             RentalContract contract = RentalContract.builder()
@@ -199,25 +236,73 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
         return reservationRepository.save(res);
     }
 
+
     @Override
     @Transactional
     public ReservationLocation signContract(Long id, String base64Signature, String signedBy) {
-        ReservationLocation res = reservationRepository.findById(id).orElseThrow();
+        ReservationLocation res = reservationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Réservation non trouvée"));
+
         RentalContract contract = res.getRentalContract();
+        if (contract == null || contract.getContractPdfUrl() == null || contract.getContractPdfUrl().isBlank()) {
+            throw new RuntimeException("Contrat introuvable pour cette réservation");
+        }
 
         String finalPdf = pdfService.addSignatureToPdf(contract.getContractPdfUrl(), base64Signature, signedBy);
 
-        contract.setSignatureImageUrl(base64Signature);
+        String storedSignaturePath = saveBase64ImageIfNeeded(
+                base64Signature,
+                SIGNATURE_UPLOAD_DIR,
+                "signature_" + id
+        );
+
+        contract.setSignatureImageUrl(storedSignaturePath); // chemin court en DB
         contract.setContractPdfUrl(finalPdf);
         contract.setDateSignature(LocalDateTime.now());
         contract.setSignedBy(signedBy);
 
         res.setStatut(ReservationStatus.CONTRACT_SIGNED);
-        res.setStatut(ReservationStatus.CONFIRMED);
-
+        if (res.getDepositStatus() == null) {
+            res.setDepositStatus(DepositStatus.PENDING);
+        }
         return reservationRepository.save(res);
     }
 
+    private String saveBase64ImageIfNeeded(String value, Path dir, String prefix) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+
+        // Si ce n'est pas du data URL/base64, on suppose déjà un chemin/URL court.
+        if (!value.startsWith("data:image/")) {
+            return value;
+        }
+        try {
+            Files.createDirectories(dir);
+
+            String[] parts = value.split(",", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("Format base64 invalide");
+            }
+
+            String meta = parts[0]; // ex: data:image/png;base64
+            String payload = parts[1];
+
+            String ext = "png";
+            if (meta.contains("image/jpeg")) ext = "jpg";
+            else if (meta.contains("image/webp")) ext = "webp";
+
+            byte[] imageBytes = Base64.getDecoder().decode(payload);
+            String fileName = prefix + "_" + System.currentTimeMillis() + "." + ext;
+            Path target = dir.resolve(fileName);
+            Files.write(target, imageBytes);
+
+            // Stocker un chemin relatif en DB (portable)
+            return target.toString().replace("\\", "/");
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur sauvegarde image base64", e);
+        }
+    }
     @Override
     @Transactional
     public void checkInVehicle(Long id, List<String> photoUrls) {
@@ -228,22 +313,40 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
             throw new IllegalArgumentException("Au moins une photo est requise pour le check-in");
         }
 
-        for (String photoUrl : photoUrls) {
-            EtatDesLieuxPhoto photo = EtatDesLieuxPhoto.builder()
-                    .reservationLocation(reservation)
-                    .photoUrl(photoUrl)
-                    .type("CHECK_IN")           // départ
-                    .dateUpload(LocalDateTime.now())
-                    .build();
-            // On sauvegarde directement (pas besoin de repository séparé car cascade)
-            reservation.getEtatDesLieuxPhotos().add(photo);
+        // Le check-in ne doit se faire qu'après confirmation
+        if (reservation.getStatut() != ReservationStatus.CONFIRMED) {
+            throw new IllegalStateException("La réservation doit être CONFIRMED avant la remise du véhicule");
         }
 
-        // Optionnel : changer le statut
-        reservation.setStatut(ReservationStatus.ACTIVE);
-        reservationRepository.save(reservation);
-    }
+        // Optionnel mais recommandé: caution bloquée obligatoire avant remise
+        if (reservation.getDepositStatus() != DepositStatus.HELD) {
+            throw new IllegalStateException("La caution doit être HELD avant la remise du véhicule");
+        }
 
+        for (String photoUrl : photoUrls) {
+            String storedPhotoPath = saveBase64ImageIfNeeded(
+                    photoUrl,
+                    ETAT_LIEUX_UPLOAD_DIR,
+                    "checkin_" + id
+            );
+
+            EtatDesLieuxPhoto photo = EtatDesLieuxPhoto.builder()
+                    .reservationLocation(reservation)
+                    .photoUrl(storedPhotoPath)
+                    .type("CHECK_IN")
+                    .dateUpload(LocalDateTime.now())
+                    .build();
+
+            reservation.getEtatDesLieuxPhotos().add(photo);
+        }
+        // EN_COURS = IN_PROGRESS dans ton enum
+        reservation.setStatut(ReservationStatus.IN_PROGRESS);
+        reservation.setDateModification(LocalDateTime.now());
+
+        reservationRepository.save(reservation);
+
+        // TODO notification client (voir point 2)
+    }
     @Override
     @Transactional
     public void checkOutVehicle(Long id, List<String> photoUrls) {
@@ -255,15 +358,21 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
         }
 
         for (String photoUrl : photoUrls) {
+            String storedPhotoPath = saveBase64ImageIfNeeded(
+                    photoUrl,
+                    ETAT_LIEUX_UPLOAD_DIR,
+                    "checkout_" + id
+            );
+
             EtatDesLieuxPhoto photo = EtatDesLieuxPhoto.builder()
                     .reservationLocation(reservation)
-                    .photoUrl(photoUrl)
-                    .type("CHECK_OUT")          // retour
+                    .photoUrl(storedPhotoPath)
+                    .type("CHECK_OUT")
                     .dateUpload(LocalDateTime.now())
                     .build();
+
             reservation.getEtatDesLieuxPhotos().add(photo);
         }
-
         // Fin de la location
         reservation.setStatut(ReservationStatus.COMPLETED);
         reservationRepository.save(reservation);
@@ -279,5 +388,34 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
                         start,
                         end);
         return !isBooked;
+    }
+    @Override
+    public List<ReservationLocation> getReservationsByAgence(Long agenceId) {
+        return reservationRepository.findByAgenceLocation_IdAgence(agenceId);
+    }
+    @Override
+    @Transactional
+    public ReservationLocation holdDeposit(Long id, String mode) {
+        ReservationLocation res = reservationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Réservation non trouvée"));
+
+        // idempotent: déjà traité
+        if (res.getDepositStatus() == DepositStatus.HELD
+                && res.getStatut() == ReservationStatus.DEPOSIT_HELD) {
+            return res;
+        }
+
+        if (res.getStatut() != ReservationStatus.CONTRACT_SIGNED) {
+            throw new IllegalStateException("Le contrat doit être signé avant de confirmer la caution");
+        }
+
+        res.setDepositStatus(DepositStatus.HELD);
+        res.setStatut(ReservationStatus.DEPOSIT_HELD);
+        res.setDateModification(LocalDateTime.now());
+
+        // optionnel: logger le mode PHYSICAL/ONLINE
+        // log.info("Deposit held for reservation {} via mode {}", id, mode);
+
+        return reservationRepository.save(res);
     }
 }

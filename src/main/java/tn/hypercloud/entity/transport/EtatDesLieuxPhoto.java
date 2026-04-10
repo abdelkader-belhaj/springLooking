@@ -17,7 +17,7 @@ public class EtatDesLieuxPhoto {
     @JoinColumn(name = "id_reservation")
     private ReservationLocation reservationLocation;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String photoUrl;
 
     @Column(length = 50)

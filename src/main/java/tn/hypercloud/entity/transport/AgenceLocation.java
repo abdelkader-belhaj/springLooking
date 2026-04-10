@@ -1,5 +1,6 @@
 package tn.hypercloud.entity.transport;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -50,7 +51,7 @@ public class AgenceLocation {
     private BigDecimal solde = BigDecimal.ZERO;
     // ====================== RELATION AVEC VÉHICULES D'AGENCE ======================
     @OneToMany(mappedBy = "agence", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @JsonIgnore
     private List<VehiculeAgence> vehiculesAgence = new ArrayList<>();
 
     @PrePersist

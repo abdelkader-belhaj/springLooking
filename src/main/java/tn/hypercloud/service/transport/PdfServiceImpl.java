@@ -60,11 +60,19 @@ public class PdfServiceImpl implements PdfService {
             throw new RuntimeException("Erreur génération PDF", e);
         }
     }
-
     @Override
     public String addSignatureToPdf(String pdfPath, String base64Signature, String signedBy) {
         try {
-            byte[] signatureBytes = Base64.getDecoder().decode(base64Signature.split(",")[1]);
+            String payload = base64Signature;
+            if (payload.startsWith("data:image/")) {
+                String[] parts = payload.split(",", 2);
+                if (parts.length != 2) {
+                    throw new IllegalArgumentException("Signature base64 invalide");
+                }
+                payload = parts[1];
+            }
+
+            byte[] signatureBytes = Base64.getDecoder().decode(payload);
 
             PdfReader reader = new PdfReader(pdfPath);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -77,7 +85,6 @@ public class PdfServiceImpl implements PdfService {
             signature.setAbsolutePosition(80, 120);
             over.addImage(signature);
 
-            // Texte signature
             over.beginText();
             over.setFontAndSize(BaseFont.createFont(), 12);
             over.setTextMatrix(80, 100);
@@ -92,7 +99,6 @@ public class PdfServiceImpl implements PdfService {
             }
 
             return pdfPath;
-
         } catch (Exception e) {
             throw new RuntimeException("Erreur ajout signature PDF", e);
         }

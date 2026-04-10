@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import tn.hypercloud.config.LenientLocalDateTimeDeserializer;
+
 @Entity
 @Table(name = "reservations_location")
 @Getter
@@ -48,10 +51,10 @@ public class ReservationLocation {
     @JoinColumn(name = "id_agence", nullable = true)
     private AgenceLocation agenceLocation;
 
-    @Column(nullable = false)
+    @JsonDeserialize(using = LenientLocalDateTimeDeserializer.class)
     private LocalDateTime dateDebut;
 
-    @Column(nullable = false)
+    @JsonDeserialize(using = LenientLocalDateTimeDeserializer.class)
     private LocalDateTime dateFin;
 
     @Enumerated(EnumType.STRING)
@@ -59,7 +62,8 @@ public class ReservationLocation {
 
     @Column(precision = 10, scale = 2, nullable = false)
     private BigDecimal prixTotal;
-
+    @Column(columnDefinition = "TEXT")
+    private String note;
     @Column(precision = 10, scale = 2)
     private BigDecimal depositAmount;
     @Column(precision = 10, scale = 2)

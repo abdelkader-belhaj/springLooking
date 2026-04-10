@@ -47,7 +47,9 @@ public class SecurityConfig {
 
                         // Routes admin uniquement
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
+                        .requestMatchers("/ws-transport/**").permitAll()
+                        .requestMatchers("/hypercloud/uploads/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         // Toutes les autres routes -> token obligatoire
                         .anyRequest().authenticated()
                 )

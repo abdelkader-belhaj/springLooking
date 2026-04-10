@@ -150,4 +150,14 @@ public class ChauffeurServiceImpl implements IChauffeurService {
     public Chauffeur save(Chauffeur chauffeur) {
         return chauffeurRepository.save(chauffeur);
     }
+    @Override
+    public Chauffeur getChauffeurByUtilisateurId(Long userId) {
+        Chauffeur c = chauffeurRepository.findByUtilisateur_Id(userId)
+                .orElseThrow(() -> new RuntimeException("Chauffeur introuvable pour userId=" + userId));
+
+        if (c.getUtilisateur() != null) {
+            c.setUtilisateurId(c.getUtilisateur().getId());
+        }
+        return c;
+    }
 }

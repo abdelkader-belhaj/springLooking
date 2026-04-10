@@ -1,5 +1,6 @@
 package tn.hypercloud.entity.transport;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tn.hypercloud.entity.transport.enums.TypeVehicule;
 import tn.hypercloud.entity.transport.enums.VehiculeStatut;
@@ -27,7 +28,7 @@ public class VehiculeAgence {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_agence", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @JsonIgnore
     private AgenceLocation agence;
 
     @Transient
@@ -60,9 +61,11 @@ public class VehiculeAgence {
     @Builder.Default
     private VehiculeStatut statut = VehiculeStatut.ACTIVE;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "vehiculeAgence", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ReservationLocation> reservations = new ArrayList<>();
+
     @Column(updatable = false)
     private LocalDateTime dateCreation;
 

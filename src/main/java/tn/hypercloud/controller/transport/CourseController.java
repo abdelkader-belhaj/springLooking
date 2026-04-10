@@ -55,12 +55,16 @@ public class CourseController {
     // =============================================
     // Méthodes supplémentaires utiles pour le frontend
     // =============================================
-    @GetMapping("/chauffeur/{chauffeurId}")
+   /* @GetMapping("/chauffeur/{chauffeurId}")
     public List<Course> getCoursesByChauffeur(@PathVariable Long chauffeurId) {
         // On peut charger le chauffeur si besoin, mais pour l'instant on laisse le service gérer
         return courseService.getCoursesByChauffeur(null); // à adapter si tu veux filtrer par ID
     }
-
+*/
+    @GetMapping("/chauffeur/{chauffeurId}")
+    public List<Course> getCoursesByChauffeur(@PathVariable Long chauffeurId) {
+        return courseService.getCoursesByChauffeur(chauffeurId);
+    }
     @GetMapping("/statut/{statut}")
     public List<Course> getCoursesByStatut(@PathVariable String statut) {
         CourseStatus status = CourseStatus.valueOf(statut.toUpperCase());
@@ -77,5 +81,9 @@ public class CourseController {
     @DeleteMapping("/{id}")
     public void deleteCourse(@PathVariable Long id) {
         courseService.deleteCourse(id);
+    }
+    @GetMapping("/client/{clientId}")
+    public List<Course> getCoursesByClient(@PathVariable Long clientId) {
+        return courseService.getCoursesByClient(clientId);
     }
 }

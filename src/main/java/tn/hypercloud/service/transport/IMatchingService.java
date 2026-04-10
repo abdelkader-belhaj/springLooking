@@ -1,5 +1,6 @@
 package tn.hypercloud.service.transport;
 
+import tn.hypercloud.dto.transport.MatchingDriverCardDTO;
 import tn.hypercloud.entity.transport.Chauffeur;
 import tn.hypercloud.entity.transport.DemandeCourse;
 import tn.hypercloud.entity.transport.Matching;
@@ -16,5 +17,10 @@ public interface IMatchingService {
     List<Matching> getMatchingsByStatut(MatchingStatut statut);
     Matching acceptMatching(Long id);
     Matching rejectMatching(Long id);
-    void proposeMatchingsToAvailableDrivers(DemandeCourse demande);
+    List<Matching> proposeMatchingsToAvailableDrivers(DemandeCourse demande);
+    List<Matching> getMatchingsByChauffeurId(Long chauffeurId);
+    // IMatchingService
+    List<MatchingDriverCardDTO> getMatchingCardsByChauffeurId(Long chauffeurId);
+    MatchingDriverCardDTO getMatchingCardById(Long matchingId);
 }
+

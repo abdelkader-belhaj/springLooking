@@ -54,4 +54,8 @@ public class AgenceLocationController {
     public AgenceLocation deactivateAgence(@PathVariable Long id) {
         return agenceService.deactivateAgence(id);
     }
+    @GetMapping("/utilisateur/{userId}")
+    public AgenceLocation getAgenceByUtilisateur(@PathVariable Long userId) {
+        return agenceService.getAgenceByUtilisateurId(userId);
+    }
 }

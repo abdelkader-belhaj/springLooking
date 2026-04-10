@@ -34,10 +34,33 @@ public class VehiculeAgenceServiceImpl implements IVehiculeAgenceService {
     }
 
     @Override
-    public VehiculeAgence updateVehiculeAgence(VehiculeAgence v) {
-        return repository.save(v);
-    }
+    @Transactional
+    public VehiculeAgence updateVehiculeAgence(VehiculeAgence input) {
+        VehiculeAgence existing = repository.findById(input.getIdVehiculeAgence())
+                .orElseThrow(() -> new RuntimeException("Véhicule non trouvé"));
 
+        if (input.getAgenceId() != null) {
+            AgenceLocation agence = agenceRepository.findById(input.getAgenceId())
+                    .orElseThrow(() -> new RuntimeException("Agence non trouvée"));
+            existing.setAgence(agence);
+        } else if (input.getAgence() != null && input.getAgence().getIdAgence() != null) {
+            AgenceLocation agence = agenceRepository.findById(input.getAgence().getIdAgence())
+                    .orElseThrow(() -> new RuntimeException("Agence non trouvée"));
+            existing.setAgence(agence);
+        }
+// sinon: on garde existing.getAgence() tel quel
+
+        existing.setMarque(input.getMarque());
+        existing.setModele(input.getModele());
+        existing.setNumeroPlaque(input.getNumeroPlaque());
+        existing.setTypeVehicule(input.getTypeVehicule());
+        existing.setCapacitePassagers(input.getCapacitePassagers());
+        existing.setPrixKm(input.getPrixKm());
+        existing.setPrixMinute(input.getPrixMinute());
+        existing.setStatut(input.getStatut());
+
+        return repository.save(existing);
+    }
     @Override
     public void deleteVehiculeAgence(Long id) {
         repository.deleteById(id);

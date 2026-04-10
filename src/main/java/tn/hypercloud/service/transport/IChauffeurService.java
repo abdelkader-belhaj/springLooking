@@ -45,4 +45,6 @@ public interface IChauffeurService {
     Chauffeur affecterChauffeurAVehicule(Long idChauffeur, Long idVehicule);
     Chauffeur updatePosition(Long idChauffeur, Localisation position);
     Chauffeur save(Chauffeur chauffeur);
+
+    Chauffeur getChauffeurByUtilisateurId(Long userId);
 }

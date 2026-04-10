@@ -93,4 +93,8 @@ public class ChauffeurController {
         Chauffeur updated = chauffeurService.updatePosition(id, position);
         return ResponseEntity.ok(updated);
     }
+    @GetMapping("/utilisateur/{userId}")
+    public Chauffeur getByUtilisateurId(@PathVariable Long userId) {
+        return chauffeurService.getChauffeurByUtilisateurId(userId);
+    }
 }

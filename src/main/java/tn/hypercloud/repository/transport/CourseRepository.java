@@ -12,4 +12,6 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     List<Course> findByChauffeur(Chauffeur chauffeur);
     List<Course> findByStatut(CourseStatus statut);
     List<Course> findByDateCreationBetween(LocalDateTime start, LocalDateTime end);
+    List<Course> findByChauffeur_IdChauffeur(Long idChauffeur);
+    List<Course> findByDemande_Client_Id(Long clientId);
 }

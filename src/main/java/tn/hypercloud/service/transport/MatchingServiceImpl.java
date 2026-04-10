@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.controller.transport.RealTimeTransportController;
 import tn.hypercloud.dto.transport.DriverNotificationDTO;
+import tn.hypercloud.dto.transport.MatchingDriverCardDTO;
 import tn.hypercloud.entity.transport.*;
 import tn.hypercloud.entity.transport.enums.*;
 import tn.hypercloud.repository.transport.*;
@@ -121,7 +122,7 @@ public class MatchingServiceImpl implements IMatchingService {
                 .build();
 
         course = courseRepository.save(course);
-
+        demande.setCourse(course);
         // 7. Lien bidirectionnel
         matching.setCourse(course);
         matchingRepository.save(matching);
@@ -158,6 +159,7 @@ public class MatchingServiceImpl implements IMatchingService {
     /**
      * Broadcast uniquement aux chauffeurs qui ont AU MOINS un véhicule actif
      */
+    /*
     @Override
     @Transactional
     public void proposeMatchingsToAvailableDrivers(DemandeCourse demande) {
@@ -169,6 +171,84 @@ public class MatchingServiceImpl implements IMatchingService {
         courseService.createProximityMatchings(demande, 10.0);   // max 10 km
 
         System.out.println("✅ Matching par proximité terminé pour la demande " + demande.getIdDemande());
+    } */
+    @Override
+    @Transactional
+    public List<Matching> proposeMatchingsToAvailableDrivers(DemandeCourse demande) {
+        if (demande.getStatut() != DemandeStatus.MATCHING) {
+            throw new IllegalStateException("La demande doit être en statut MATCHING");
+        }
+
+        // 1) Ta logique actuelle de création des matchings
+        courseService.createProximityMatchings(demande, 10.0);
+
+        // 2) Récupérer les matchings PROPOSED de cette demande
+        List<Matching> proposed = matchingRepository.findAllByDemande(demande).stream()
+                .filter(m -> m.getStatut() == MatchingStatut.PROPOSED)
+                .toList();
+
+        // 3) Envoyer une notification WS à chaque chauffeur concerné
+        for (Matching m : proposed) {
+            Chauffeur ch = m.getChauffeur();
+            if (ch == null || ch.getIdChauffeur() == null) continue;
+
+            DriverNotificationDTO notif = DriverNotificationDTO.builder()
+                    .type("NEW_COURSE")
+                    .titre("Nouvelle demande")
+                    .message("Une course vous est proposée")
+                    .data(java.util.Map.of(
+                            "idMatching", m.getIdMatching(),
+                            "idDemande", demande.getIdDemande(),
+                            "chauffeurId", ch.getIdChauffeur(),
+                            "prixEstime", demande.getPrixEstime() != null ? demande.getPrixEstime() : java.math.BigDecimal.ZERO,
+                            "typeVehicule", demande.getTypeVehiculeDemande() != null ? demande.getTypeVehiculeDemande().name() : "ECONOMY",
+                            "adresseDepart", demande.getLocalisationDepart() != null && demande.getLocalisationDepart().getAdresse() != null ? demande.getLocalisationDepart().getAdresse() : "Adresse inconnue",
+                            "adresseArrivee", demande.getLocalisationArrivee() != null && demande.getLocalisationArrivee().getAdresse() != null ? demande.getLocalisationArrivee().getAdresse() : "Adresse inconnue",
+                            "clientNom", demande.getClient() != null && demande.getClient().getUsername() != null ? demande.getClient().getUsername() : "Client"
+                    ))
+                    .build();
+
+            realTimeController.sendNotificationToDriver(ch.getIdChauffeur(), notif);
+        }
+
+        System.out.println("✅ Matchings PROPOSED notifiés: " + proposed.size() + " pour demande " + demande.getIdDemande());
+        return proposed;
+    }
+    @Override
+    public List<Matching> getMatchingsByChauffeurId(Long chauffeurId) {
+        return matchingRepository.findByChauffeur_IdChauffeur(chauffeurId);
+    }
+    // MatchingServiceImpl
+    @Override
+    @Transactional(readOnly = true)
+    public List<MatchingDriverCardDTO> getMatchingCardsByChauffeurId(Long chauffeurId) {
+        return matchingRepository
+                .findDetailedByChauffeurAndStatut(chauffeurId, MatchingStatut.PROPOSED)
+                .stream()
+                .map(this::toCardDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MatchingDriverCardDTO getMatchingCardById(Long matchingId) {
+        Matching m = matchingRepository.findDetailedById(matchingId).orElse(null);
+        return m == null ? null : toCardDto(m);
+    }
+
+    private MatchingDriverCardDTO toCardDto(Matching m) {
+        DemandeCourse d = m.getDemande();
+        return MatchingDriverCardDTO.builder()
+                .idMatching(m.getIdMatching())
+                .idDemande(d != null ? d.getIdDemande() : null)
+                .statut(m.getStatut() != null ? m.getStatut().name() : null)
+                .chauffeurId(m.getChauffeur() != null ? m.getChauffeur().getIdChauffeur() : null)
+                .prixEstime(d != null ? d.getPrixEstime() : null)
+                .typeVehicule(d != null && d.getTypeVehiculeDemande() != null ? d.getTypeVehiculeDemande().name() : null)
+                .adresseDepart(d != null && d.getLocalisationDepart() != null ? d.getLocalisationDepart().getAdresse() : null)
+                .adresseArrivee(d != null && d.getLocalisationArrivee() != null ? d.getLocalisationArrivee().getAdresse() : null)
+                .clientNom(d != null && d.getClient() != null ? d.getClient().getUsername() : null)
+                .build();
     }
 }
 

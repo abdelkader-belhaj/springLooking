@@ -74,4 +74,17 @@ public class AgenceLocationServiceImpl implements IAgenceLocationService {
         agence.setStatut(false);
         return agenceRepository.save(agence);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AgenceLocation getAgenceByUtilisateurId(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId ne peut pas être nul");
+        }
+
+        return agenceRepository.findByUtilisateur_Id(userId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Agence non trouvée pour l'utilisateur " + userId
+                ));
+    }
 }

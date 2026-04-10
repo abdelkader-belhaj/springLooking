@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.entity.transport.DemandeCourse;
+import tn.hypercloud.entity.transport.Matching;
 import tn.hypercloud.entity.transport.enums.DemandeStatus;
 import tn.hypercloud.entity.transport.enums.TypeVehicule;
 import tn.hypercloud.entity.user.User;
@@ -95,10 +96,13 @@ public class TransportationBookingServiceImpl implements ITransportationBookingS
         demande = demandeCoursService.updateStatut(demandeId, DemandeStatus.MATCHING);
 
         // 3. Broadcast aux chauffeurs disponibles → création des Matching PROPOSED
-        matchingService.proposeMatchingsToAvailableDrivers(demande);
-
+        //matchingService.proposeMatchingsToAvailableDrivers(demande);
+// 3. Broadcast aux chauffeurs disponibles → création des Matching PROPOSED
+        List<Matching> createdMatchings = matchingService.proposeMatchingsToAvailableDrivers(demande);
+        System.out.println("✅ Matchings créés/notifiés: " + createdMatchings.size());
         return demande;
     }
+
 
     // 4. GET BOOKINGS BY CLIENT
     @Override

@@ -6,12 +6,14 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
+import tn.hypercloud.dto.transport.ChatMessageDTO;
 import tn.hypercloud.dto.transport.DriverNotificationDTO;
 import tn.hypercloud.dto.transport.LocationUpdateDTO;
 import tn.hypercloud.entity.transport.Chauffeur;
 import tn.hypercloud.entity.transport.Localisation;
 import tn.hypercloud.service.transport.IChauffeurService;
 import tn.hypercloud.service.transport.ICourseService;
+import tn.hypercloud.service.transport.MessageServiceImpl;
 
 @Controller
 @RequiredArgsConstructor
@@ -20,6 +22,7 @@ public class RealTimeTransportController {
     private final SimpMessagingTemplate messagingTemplate;
     private final IChauffeurService chauffeurService;
     private final ICourseService courseService;   // injecté pour usage futur
+    private final MessageServiceImpl messageServiceImpl;
 
     /**
      * Driver envoie sa position toutes les 3-5 secondes (via WebSocket)
@@ -65,10 +68,47 @@ public class RealTimeTransportController {
         System.out.println("📨 [DEBUG] Envoi notification via WebSocket → chauffeur " + chauffeurId
                 + " | type = " + notification.getType());
 
+        Chauffeur chauffeur = chauffeurService.getChauffeurById(chauffeurId);
+        String principalName = chauffeur.getUtilisateur().getEmail(); // = getUsername() côté UserDetails
         messagingTemplate.convertAndSendToUser(
-                chauffeurId.toString(),
+                principalName,
                 "/queue/notifications",
                 notification
         );
+    }
+    @MessageMapping("/chat/send")
+    @Transactional
+    public void sendChatMessage(@Payload ChatMessageDTO message) {
+        // Sauvegarde en base (tu peux créer un service MessageService plus tard)
+        // Pour l'instant on diffuse directement
+
+        String destination = "/topic/course/" + message.getCourseId() + "/chat";
+        messagingTemplate.convertAndSend(destination, message);
+
+        System.out.println("💬 Message envoyé dans la course " + message.getCourseId());
+    }
+    /**
+     * Diffusion du message de chat
+     */
+    public void broadcastChatMessage(ChatMessageDTO message) {
+        messagingTemplate.convertAndSend("/topic/course/" + message.getCourseId() + "/chat", message);
+    }
+
+    /**
+     * Diffusion des accusés de réception (delivered + read)
+     */
+    public void broadcastReadReceipt(ChatMessageDTO receipt) {
+        messagingTemplate.convertAndSend("/topic/course/" + receipt.getCourseId() + "/chat/receipts", receipt);
+    }
+    @MessageMapping("/chat/delivered")
+    @Transactional
+    public void messageDelivered(@Payload Long messageId) {
+        messageServiceImpl.markMessageAsDelivered(messageId);
+    }
+
+    @MessageMapping("/chat/read")
+    @Transactional
+    public void messageRead(@Payload Long messageId) {
+        messageServiceImpl.markMessageAsRead(messageId);
     }
 }

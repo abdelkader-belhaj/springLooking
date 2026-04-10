@@ -7,10 +7,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tn.hypercloud.dto.transport.EtatDesLieuxPhotoDto;
+import tn.hypercloud.dto.transport.ReservationLocationDto;
+import tn.hypercloud.entity.transport.EtatDesLieuxPhoto;
 import tn.hypercloud.entity.transport.ReservationLocation;
 import tn.hypercloud.entity.transport.enums.PaiementMethode;
 import tn.hypercloud.service.transport.IReservationLocationService;
+import tn.hypercloud.service.transport.PdfService;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -22,17 +27,26 @@ import java.util.List;
 public class ReservationLocationController {
 
     private final IReservationLocationService reservationService;
+    private final PdfService pdfService;
 
-    // ==================== CRUD ====================
     @PostMapping
-    public ReservationLocation createReservation(@RequestBody ReservationLocation reservation) {
-        return reservationService.createReservation(reservation);
+    public ResponseEntity<ReservationLocationDto> createReservation(@RequestBody ReservationLocation reservation) {
+        ReservationLocation saved = reservationService.createReservation(reservation);
+        return ResponseEntity.ok(toDto(saved));
     }
 
     @PutMapping("/{id}")
-    public ReservationLocation updateReservation(@PathVariable Long id, @RequestBody ReservationLocation reservation) {
+    public ResponseEntity<ReservationLocationDto> updateReservation(@PathVariable Long id, @RequestBody ReservationLocation reservation) {
         reservation.setIdReservation(id);
-        return reservationService.updateReservation(reservation);
+        ReservationLocation updated = reservationService.updateReservation(reservation);
+        return ResponseEntity.ok(toDto(updated));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ReservationLocationDto> getById(@PathVariable Long id) {
+        ReservationLocation reservation = reservationService.getById(id);
+        if (reservation == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(toDto(reservation));
     }
 
     @DeleteMapping("/{id}")
@@ -40,75 +54,90 @@ public class ReservationLocationController {
         reservationService.deleteReservation(id);
     }
 
-    @GetMapping("/{id}")
-    public ReservationLocation getById(@PathVariable Long id) {
-        return reservationService.getById(id);
-    }
+
 
     @GetMapping
-    public List<ReservationLocation> getAllReservations() {
-        return reservationService.getAllReservations();
+    public List<ReservationLocationDto> getAllReservations() {
+        return reservationService.getAllReservations().stream().map(this::toDto).toList();
     }
 
     @GetMapping("/client/{clientId}")
-    public List<ReservationLocation> getByClient(@PathVariable Long clientId) {
-        return reservationService.getReservationsByClient(clientId);
+    public List<ReservationLocationDto> getByClient(@PathVariable Long clientId) {
+        return reservationService.getReservationsByClient(clientId)
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 
-    // ==================== WORKFLOW ====================
+    @GetMapping("/agence/{agenceId}")
+    public List<ReservationLocationDto> getByAgence(@PathVariable Long agenceId) {
+        return reservationService.getReservationsByAgence(agenceId)
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     @PutMapping("/{id}/confirmer")
-    public ReservationLocation confirm(@PathVariable Long id) {
-        return reservationService.confirmReservation(id);
+    public ResponseEntity<ReservationLocationDto> confirm(@PathVariable Long id) {
+        ReservationLocation reservation = reservationService.confirmReservation(id);
+        return ResponseEntity.ok(toDto(reservation));
     }
 
     @PutMapping("/{id}/annuler")
-    public ReservationLocation cancel(@PathVariable Long id) {
-        return reservationService.cancelReservation(id);
+    public ResponseEntity<ReservationLocationDto> cancel(@PathVariable Long id) {
+        ReservationLocation reservation = reservationService.cancelReservation(id);
+        return ResponseEntity.ok(toDto(reservation));
     }
 
     @PostMapping("/{id}/complete")
-    public ResponseEntity<ReservationLocation> completeReservation(
+    public ResponseEntity<ReservationLocationDto> completeReservation(
             @PathVariable Long id,
             @RequestParam(defaultValue = "CARD") PaiementMethode methode) {
         ReservationLocation reservation = reservationService.completeReservation(id, methode);
-        return ResponseEntity.ok(reservation);
+        return ResponseEntity.ok(toDto(reservation));
     }
 
     @PostMapping("/{id}/upload-license")
-    public ReservationLocation uploadLicense(
+    public ResponseEntity<ReservationLocationDto> uploadLicense(
             @PathVariable Long id,
             @RequestParam String numeroPermis,
             @RequestParam String licenseImageUrl,
-            @RequestParam LocalDateTime expiryDate) {
-        return reservationService.uploadLicense(id, numeroPermis, licenseImageUrl, expiryDate);
+            @RequestParam String expiryDate) {
+        LocalDateTime parsedExpiry = expiryDate.length() == 10
+                ? java.time.LocalDate.parse(expiryDate).atStartOfDay()
+                : java.time.LocalDateTime.parse(expiryDate);
+        ReservationLocation reservation = reservationService.uploadLicense(id, numeroPermis, licenseImageUrl, parsedExpiry);
+        return ResponseEntity.ok(toDto(reservation));
     }
 
     @PostMapping("/{id}/approve-license")
-    public ReservationLocation approveLicense(
+    public ResponseEntity<ReservationLocationDto> approveLicense(
             @PathVariable Long id,
             @RequestParam boolean approved,
             @RequestParam(required = false) String reason) {
-        return reservationService.approveLicense(id, approved, reason);
+        ReservationLocation reservation = reservationService.approveLicense(id, approved, reason);
+        return ResponseEntity.ok(toDto(reservation));
     }
 
     @PostMapping("/{id}/sign-contract")
-    public ReservationLocation signContract(
+    public ResponseEntity<ReservationLocationDto> signContract(
             @PathVariable Long id,
             @RequestParam String base64Signature,
             @RequestParam String signedBy) {
-        return reservationService.signContract(id, base64Signature, signedBy);
+        ReservationLocation reservation = reservationService.signContract(id, base64Signature, signedBy);
+        return ResponseEntity.ok(toDto(reservation));
     }
 
     @PostMapping("/{id}/check-in")
     public ResponseEntity<String> checkIn(@PathVariable Long id, @RequestBody List<String> photoUrls) {
         reservationService.checkInVehicle(id, photoUrls);
-        return ResponseEntity.ok("Check-in effectué avec " + photoUrls.size() + " photo(s)");
+        return ResponseEntity.ok("Check-in effectue avec " + photoUrls.size() + " photo(s)");
     }
 
     @PostMapping("/{id}/check-out")
     public ResponseEntity<String> checkOut(@PathVariable Long id, @RequestBody List<String> photoUrls) {
         reservationService.checkOutVehicle(id, photoUrls);
-        return ResponseEntity.ok("Check-out effectué avec " + photoUrls.size() + " photo(s)");
+        return ResponseEntity.ok("Check-out effectue avec " + photoUrls.size() + " photo(s)");
     }
 
     @GetMapping("/availability")
@@ -119,30 +148,149 @@ public class ReservationLocationController {
         return reservationService.isVehicleAvailable(vehiculeAgenceId, start, end);
     }
 
-    // ==================== PDF DOWNLOAD ====================
     @GetMapping("/{id}/contract-pdf")
     public ResponseEntity<Resource> downloadContract(@PathVariable Long id) {
         ReservationLocation reservation = reservationService.getById(id);
-        if (reservation == null || reservation.getRentalContract() == null) {
-            return ResponseEntity.notFound().build();
-        }
+        if (reservation == null) return ResponseEntity.notFound().build();
 
-        String filePath = reservation.getRentalContract().getContractPdfUrl();
         try {
-            Path path = Paths.get(filePath);
-            Resource resource = new UrlResource(path.toUri());   // ← plus de cast inutile
+            if (reservation.getRentalContract() == null || reservation.getRentalContract().getContractPdfUrl() == null) {
+                String generatedPath = pdfService.generateContractPdf(reservation);
+                reservation.getRentalContract().setContractPdfUrl(generatedPath);
+            }
 
-            if (resource.exists() && resource.isReadable()) {     // ← correction ici
-                return ResponseEntity.ok()
-                        .contentType(MediaType.APPLICATION_PDF)
-                        .header(HttpHeaders.CONTENT_DISPOSITION,
-                                "attachment; filename=\"contrat_" + id + ".pdf\"")
-                        .body(resource);
-            } else {
+            String filePath = reservation.getRentalContract().getContractPdfUrl();
+            Path path = Paths.get(filePath);
+            if (!path.isAbsolute()) {
+                path = Paths.get(System.getProperty("user.dir")).resolve(path).normalize();
+            }
+
+            Resource resource = new UrlResource(path.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
                 return ResponseEntity.notFound().build();
             }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"contrat_" + id + ".pdf\"")
+                    .body(resource);
+
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    private ReservationLocationDto toDto(ReservationLocation r) {
+        Long clientId = (r.getClient() != null) ? r.getClient().getId() : r.getClientId();
+        String clientUsername = (r.getClient() != null) ? r.getClient().getUsername() : null;
+
+        Long vehiculeId = (r.getVehiculeAgence() != null) ? r.getVehiculeAgence().getIdVehiculeAgence() : r.getVehiculeAgenceId();
+        String vehiculeMarque = (r.getVehiculeAgence() != null) ? r.getVehiculeAgence().getMarque() : null;
+        String vehiculeModele = (r.getVehiculeAgence() != null) ? r.getVehiculeAgence().getModele() : null;
+        String vehiculePlaque = (r.getVehiculeAgence() != null) ? r.getVehiculeAgence().getNumeroPlaque() : null;
+
+        Long agenceId = null;
+        String agenceNom = null;
+        String agenceAdresse = null;
+        String agenceTelephone = null;
+
+        if (r.getAgenceLocation() != null) {
+            agenceId = r.getAgenceLocation().getIdAgence();
+            agenceNom = r.getAgenceLocation().getNomAgence();
+            agenceAdresse = r.getAgenceLocation().getAdresse();
+            agenceTelephone = r.getAgenceLocation().getTelephone();
+        } else if (r.getVehiculeAgence() != null && r.getVehiculeAgence().getAgence() != null) {
+            agenceId = r.getVehiculeAgence().getAgence().getIdAgence();
+            agenceNom = r.getVehiculeAgence().getAgence().getNomAgence();
+            agenceAdresse = r.getVehiculeAgence().getAgence().getAdresse();
+            agenceTelephone = r.getVehiculeAgence().getAgence().getTelephone();
+        }
+
+        String contractPdfUrl = (r.getRentalContract() != null) ? r.getRentalContract().getContractPdfUrl() : null;
+        List<EtatDesLieuxPhotoDto> photos = r.getEtatDesLieuxPhotos() == null
+                ? List.of()
+                : r.getEtatDesLieuxPhotos().stream()
+                .map(this::toEtatDesLieuxPhotoDto)
+                .toList();
+        return new ReservationLocationDto(
+                r.getIdReservation(),
+
+                clientId,
+                clientUsername,
+
+                vehiculeId,
+                vehiculeMarque,
+                vehiculeModele,
+                vehiculePlaque,
+
+                agenceId,
+                agenceNom,
+                agenceAdresse,
+                agenceTelephone,
+
+                r.getDateDebut(),
+                r.getDateFin(),
+
+                r.getPrixTotal(),
+                r.getDepositAmount(),
+                r.getDepositStatus(),
+
+                r.getStatut(),
+
+                r.getNumeroPermis(),
+                r.getLicenseStatus(),
+                r.getLicenseExpiryDate(),
+                r.getLicenseImageUrl(),
+                r.getNote(),
+                contractPdfUrl,
+                photos
+        );
+    }
+    private EtatDesLieuxPhotoDto toEtatDesLieuxPhotoDto(EtatDesLieuxPhoto photo) {
+        return new EtatDesLieuxPhotoDto(
+                photo.getId(),
+                photo.getPhotoUrl(),
+                photo.getType(),
+                photo.getDateUpload()
+        );
+    }
+    @GetMapping("/{id}/license-image")
+    public ResponseEntity<Resource> downloadLicenseImage(@PathVariable Long id) {
+        ReservationLocation reservation = reservationService.getById(id);
+        if (reservation == null || reservation.getLicenseImageUrl() == null || reservation.getLicenseImageUrl().isBlank()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        try {
+            Path path = Paths.get(reservation.getLicenseImageUrl());
+            if (!path.isAbsolute()) {
+                path = Paths.get(System.getProperty("user.dir")).resolve(path).normalize();
+            }
+
+            Resource resource = new UrlResource(path.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String mime = Files.probeContentType(path); // ex: image/png
+            MediaType mediaType = (mime != null)
+                    ? MediaType.parseMediaType(mime)
+                    : MediaType.APPLICATION_OCTET_STREAM;
+
+            return ResponseEntity.ok()
+                    .contentType(mediaType)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + path.getFileName() + "\"")
+                    .body(resource);
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    @PostMapping("/{id}/hold-deposit")
+    public ResponseEntity<ReservationLocationDto> holdDeposit(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "PHYSICAL") String mode) {
+        ReservationLocation reservation = reservationService.holdDeposit(id, mode);
+        return ResponseEntity.ok(toDto(reservation));
     }
 }
