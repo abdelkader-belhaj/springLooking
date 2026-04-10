@@ -14,6 +14,9 @@ public class UserResponse {
     private String email;
     private boolean enabled;
     private Role role;
+    private String phone;
+    private String bio;
+    private String profileImage;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -25,6 +28,9 @@ public class UserResponse {
         this.email = user.getEmail();
         this.enabled = user.isEnabled();
         this.role = user.getRole();
+        this.phone = user.getPhone();
+        this.bio = user.getBio();
+        this.profileImage = user.getProfileImage();
         this.createdAt = user.getCreatedAt();
         this.updatedAt = user.getUpdatedAt();
     }
@@ -67,6 +73,30 @@ public class UserResponse {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+
+    public String getProfileImage() {
+        return profileImage;
+    }
+
+    public void setProfileImage(String profileImage) {
+        this.profileImage = profileImage;
     }
 
     public LocalDateTime getCreatedAt() {

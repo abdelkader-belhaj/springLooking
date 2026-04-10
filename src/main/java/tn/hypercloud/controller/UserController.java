@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import tn.hypercloud.entity.user.Role;
 import tn.hypercloud.payload.request.ChangePasswordRequest;
+import tn.hypercloud.payload.request.UpdateFaceIdRequest;
 import tn.hypercloud.payload.request.UpdateUserRequest;
 import tn.hypercloud.payload.response.ApiResponse;
 import tn.hypercloud.payload.response.UserResponse;
@@ -84,6 +85,19 @@ public class UserController {
         return ResponseEntity.ok(
                 ApiResponse.success("Mot de passe modifie", null));
     }
+
+        /**
+         * UPDATE FACE ID
+         * Postman : PATCH http://localhost:8080/api/users/1/face-id
+         * Body    : { "imageBase64": "data:image/jpeg;base64,..." }
+         */
+        @PatchMapping("/{id}/face-id")
+        public ResponseEntity<ApiResponse<UserResponse>> updateFaceId(
+                        @PathVariable Long id,
+                        @Valid @RequestBody UpdateFaceIdRequest request) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Face ID mis a jour", userService.updateFaceId(id, request)));
+        }
 
     /**
      * CHANGE ROLE  (ADMIN seulement)

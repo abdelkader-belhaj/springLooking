@@ -39,9 +39,23 @@ POST: http://localhost:8080/api/auth/reset-password
 }
 
 
+////////
+*login
+POST   http://localhost:8080/api/auth/login
+
+{
+  "email": "votre_email@test.com",
+  "password": "votre_mot_de_passe"
+}
+
+*Vérifier la session active
+GET http://localhost:8080/api/session/me
+
+==> NB : Utiliser le même onglet Postman
 
 
-dans la base de donner : 
+*Vérifier la section selon rôle
+GET http://localhost:8080/api/session/my-section
 
-INSERT INTO `user` (`id`, `bio`, `created_at`, `email`, `enabled`, `password`, `phone`, `profile_image`, `role`, `updated_at`, `username`, `face_detector_backend`, `face_embedding`, `face_model_name`, `face_threshold`, `requested_role`, `role_request_status`, `reset_password_token`, `reset_password_token_expiry`) VALUES
-(35, NULL, '2026-04-02 18:00:51.000000', 'bjgadour133@gmail.com', b'1', '$2a$10$rXrR6CvJ7oYnMOir8yXLZ.VGBW.7dm258etKwyFhYBp7lG0kenN8W', NULL, NULL, 'HEBERGEUR', '2026-04-02 18:19:00.000000', 'gougou07', NULL, NULL, NULL, NULL, NULL, 'APPROVED', NULL, NULL);
+*Tester logout
+POST http://localhost:8080/api/auth/logout

@@ -4,9 +4,12 @@ package tn.hypercloud.controller;
 
 
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tn.hypercloud.payload.request.FaceLoginRequest;
+import tn.hypercloud.payload.request.FaceRegisterRequest;
 import tn.hypercloud.payload.request.ForgotPasswordRequest;
 import tn.hypercloud.payload.request.LoginRequest;
 import tn.hypercloud.payload.request.RegisterRequest;
@@ -35,11 +38,15 @@ public class AuthController {
      */
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
-            @Valid @RequestBody RegisterRequest request) {
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest) {
 
-        AuthResponse auth = authService.register(request);
+        AuthResponse auth = authService.register(request, httpRequest);
+        String message = auth.getUser() != null && !auth.getUser().isEnabled()
+            ? "Compte cree en attente de validation admin"
+            : "Inscription reussie";
         return ResponseEntity.ok(
-                ApiResponse.success("Inscription reussie", auth));
+            ApiResponse.success(message, auth));
     }
 
     /**
@@ -54,11 +61,42 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
-            @Valid @RequestBody LoginRequest request) {
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
 
-        AuthResponse auth = authService.login(request);
+        AuthResponse auth = authService.login(request, httpRequest);
         return ResponseEntity.ok(
                 ApiResponse.success("Connexion reussie", auth));
+    }
+
+    @PostMapping("/register-face")
+    public ResponseEntity<ApiResponse<AuthResponse>> registerWithFace(
+            @Valid @RequestBody FaceRegisterRequest request,
+            HttpServletRequest httpRequest) {
+
+        AuthResponse auth = authService.registerWithFace(request, httpRequest);
+        String message = auth.getUser() != null && !auth.getUser().isEnabled()
+            ? "Compte Face ID cree en attente de validation admin"
+            : "Inscription Face ID reussie";
+        return ResponseEntity.ok(
+            ApiResponse.success(message, auth));
+    }
+
+    @PostMapping("/login-face")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithFace(
+            @Valid @RequestBody FaceLoginRequest request,
+            HttpServletRequest httpRequest) {
+
+        AuthResponse auth = authService.loginWithFace(request, httpRequest);
+        return ResponseEntity.ok(
+                ApiResponse.success("Connexion Face ID reussie", auth));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
+        authService.logout(request);
+        return ResponseEntity.ok(
+                ApiResponse.success("Deconnexion reussie", null));
     }
 
         /**

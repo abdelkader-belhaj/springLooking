@@ -1,0 +1,64 @@
+Parfait. Après redémarrage machine, fais juste cette routine :
+
+cd "C:\Users\gadour\Desktop\userSpring - Copie\springLooking\ai-face-service"
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --env-file .env
+
+Ouvre PowerShell
+Exécute :
+Vérifie dans navigateur :
+http://localhost:8001/health
+Réponse attendue : {"status":"ok"}
+C’est tout.
+Le fichier .env reste déjà créé, donc tu ne le recrées pas à chaque fois.
+
+Si Activate.ps1 est bloqué, exécute une fois dans la session :
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+puis relance Activate.ps1.
+-----------------------------
+
+PS C:\Users\gadour\Desktop\userSpring - Copie\springLooking\ai-face-service> Test-Path .env
+False
+PS C:\Users\gadour\Desktop\userSpring - Copie\springLooking\ai-face-service> Copy-Item .env.example .env
+PS C:\Users\gadour\Desktop\userSpring - Copie\springLooking\ai-face-service> Test-Path .env
+True
+PS C:\Users\gadour\Desktop\userSpring - Copie\springLooking\ai-face-service> Get-Content .env
+FACE_MODEL_NAME=SFace
+FACE_DETECTOR_BACKEND=opencv
+FACE_MATCH_THRESHOLD=0.75
+PORT=8001
+PS C:\Users\gadour\Desktop\userSpring - Copie\springLooking\ai-face-service> .\.venv\Scripts\Activate.ps1
+(.venv) PS C:\Users\gadour\Desktop\userSpring - Copie\springLooking\ai-face-service> uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --env-file .env
+←[32mINFO←[0m:     Will watch for changes in these directories: ['C:\\Users\\gadour\\Desktop\\userSpring - Copie\\springLooking\\ai-face-service']
+←[32mINFO←[0m:     Loading environment from '.env'
+
+
+POST /auth/register-face
+Body :
+{
+"username": "user1",
+"email": "user1@mail.com",
+"password": "123456",
+"imageBase64": "data:image/jpeg;base64,...",
+"role": "CLIENT_TOURISTE"
+}
+
+POST /auth/login-face
+Body :
+{
+"login": "user1@mail.com",
+"imageBase64": "data:image/jpeg;base64,...",
+"threshold": 0.75
+}
+
+Login classique déjà existant (inchangé) : POST /auth/login
+Body :
+{
+"login": "user1@mail.com",
+"password": "123456"
+}
+
+
+
+
+
