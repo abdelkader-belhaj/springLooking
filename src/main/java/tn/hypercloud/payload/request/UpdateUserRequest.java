@@ -14,6 +14,9 @@ public class UpdateUserRequest {
 
     private Role role;
     private boolean enabled;
+    private String phone;
+    private String bio;
+    private String profileImage;
 
     public UpdateUserRequest() {}
 
@@ -54,5 +57,29 @@ public class UpdateUserRequest {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+
+    public String getProfileImage() {
+        return profileImage;
+    }
+
+    public void setProfileImage(String profileImage) {
+        this.profileImage = profileImage;
     }
 }

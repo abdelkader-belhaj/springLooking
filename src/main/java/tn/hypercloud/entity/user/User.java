@@ -168,7 +168,7 @@ public class User implements UserDetails {
     public boolean isCredentialsNonExpired() { return true; }
 
 // ============================================
-//  Cycle de vie JPAJPA = Java Persistence API.
+//  Cycle de vie JPA = Java Persistence API.
 //C la norme Java pour mapper les classes Java vers les tables SQL.
 // “cycle JPA” = comment l’entité naît, est gérée, se détache,  
 // puis se supprime, avec des hooks automatiques comme

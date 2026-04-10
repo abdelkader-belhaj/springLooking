@@ -5,6 +5,7 @@ package tn.hypercloud.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -46,6 +47,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 ApiResponse.error("Email ou mot de passe incorrect"));
     }
+
+        @ExceptionHandler(DisabledException.class)
+        public ResponseEntity<ApiResponse<Void>> handleDisabledAccount(
+            DisabledException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+            ApiResponse.error("Votre compte est en attente de validation par l administrateur"));
+        }
 
     // User non trouve, email deja utilise, etc.
     @ExceptionHandler(RuntimeException.class)
