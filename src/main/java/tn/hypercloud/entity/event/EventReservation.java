@@ -20,6 +20,7 @@ public class EventReservation {
     private LocalDateTime reservationDate;
 
     @Column(name = "number_of_tickets", nullable = false)
+    @Builder.Default
     private int numberOfTickets = 1;
 
     @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
@@ -27,6 +28,7 @@ public class EventReservation {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private ReservationStatus status = ReservationStatus.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)

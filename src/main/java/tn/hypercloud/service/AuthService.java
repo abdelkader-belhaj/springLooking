@@ -26,7 +26,9 @@ import tn.hypercloud.payload.request.ForgotPasswordRequest;
 import tn.hypercloud.payload.request.LoginRequest;
 import tn.hypercloud.payload.request.RegisterRequest;
 import tn.hypercloud.payload.request.ResetPasswordRequest;
+import tn.hypercloud.payload.request.TwoFactorCodeRequest;
 import tn.hypercloud.payload.response.AuthResponse;
+import tn.hypercloud.payload.response.TwoFactorSetupResponse;
 import tn.hypercloud.payload.response.face.ExtractEmbeddingResponse;
 import tn.hypercloud.payload.response.face.VerifyFaceResponse;
 import tn.hypercloud.payload.response.UserResponse;
@@ -50,6 +52,7 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
     private final FaceAiClientService faceAiClientService;
+    private final TwoFactorService twoFactorService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -227,6 +230,34 @@ public class AuthService {
         SecurityContextHolder.clearContext();
     }
 
+    public TwoFactorSetupResponse setupTwoFactor() {
+        User user = requireCurrentUser();
+
+        if (user.getTwoFactorSecret() == null || user.getTwoFactorSecret().isBlank()) {
+            user.setTwoFactorSecret(twoFactorService.generateSecret());
+            userRepository.save(user);
+        }
+
+        return twoFactorService.buildSetupResponse(user.getEmail(), user.getTwoFactorSecret(), user.isTwoFactorEnabled());
+    }
+
+    public UserResponse verifyTwoFactor(TwoFactorCodeRequest request) {
+        User user = requireCurrentUser();
+
+        if (user.getTwoFactorSecret() == null || user.getTwoFactorSecret().isBlank()) {
+            throw new RuntimeException("Aucun secret 2FA n est disponible pour ce compte");
+        }
+
+        if (!twoFactorService.verifyCode(user.getTwoFactorSecret(), request.getCode())) {
+            throw new RuntimeException("Code 2FA invalide");
+        }
+
+        user.setTwoFactorEnabled(true);
+        user.setTwoFactorActivatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        return UserResponse.fromEntity(user);
+    }
+
     /**
      * DEMANDE DE MOT DE PASSE OUBLIE
      */
@@ -307,6 +338,17 @@ public class AuthService {
         session.setAttribute("userId", user.getId());
         session.setAttribute("email", user.getEmail());
         session.setAttribute("role", user.getRole().name());
+    }
+
+    private User requireCurrentUser() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || authentication.getName() == null || "anonymousUser".equals(authentication.getName())) {
+            throw new RuntimeException("Utilisateur non connecte");
+        }
+
+        return userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouve"));
     }
 
     private String toJson(List<Double> embedding) {

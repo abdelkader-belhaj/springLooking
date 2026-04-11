@@ -34,6 +34,7 @@ public class PaiementVol {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private StatutPaiement statut = StatutPaiement.en_attente;
 
     /** Renseigné quand statut = 'paye' */

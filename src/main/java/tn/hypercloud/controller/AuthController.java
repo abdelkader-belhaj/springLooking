@@ -14,8 +14,10 @@ import tn.hypercloud.payload.request.ForgotPasswordRequest;
 import tn.hypercloud.payload.request.LoginRequest;
 import tn.hypercloud.payload.request.RegisterRequest;
 import tn.hypercloud.payload.request.ResetPasswordRequest;
+import tn.hypercloud.payload.request.TwoFactorCodeRequest;
 import tn.hypercloud.payload.response.ApiResponse;
 import tn.hypercloud.payload.response.AuthResponse;
+import tn.hypercloud.payload.response.TwoFactorSetupResponse;
 import tn.hypercloud.service.AuthService;
 
 @RestController
@@ -128,5 +130,18 @@ public class AuthController {
         authService.resetPassword(request);
         return ResponseEntity.ok(
             ApiResponse.success("Mot de passe reinitialise", null));
+        }
+
+        @PostMapping("/2fa/setup")
+        public ResponseEntity<ApiResponse<TwoFactorSetupResponse>> setupTwoFactor() {
+            return ResponseEntity.ok(
+                    ApiResponse.success("Configuration 2FA generee", authService.setupTwoFactor()));
+        }
+
+        @PostMapping("/2fa/verify")
+        public ResponseEntity<ApiResponse<tn.hypercloud.payload.response.UserResponse>> verifyTwoFactor(
+                @Valid @RequestBody TwoFactorCodeRequest request) {
+            return ResponseEntity.ok(
+                    ApiResponse.success("2FA active avec succes", authService.verifyTwoFactor(request)));
         }
 }
