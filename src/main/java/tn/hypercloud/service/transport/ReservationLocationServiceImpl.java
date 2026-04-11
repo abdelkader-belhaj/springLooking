@@ -185,7 +185,9 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
 
     @Override
     @Transactional
-    public ReservationLocation uploadLicense(Long id, String numeroPermis, String licenseImageUrl, LocalDateTime expiry) {
+    public ReservationLocation uploadLicense(Long id, String numeroPermis, String licenseImageUrl, LocalDateTime expiry,String prenom,
+                                             String nom,
+                                             LocalDateTime dateNaiss) {
         ReservationLocation res = reservationRepository.findById(id).orElseThrow();
 
         String storedLicensePath = saveBase64ImageIfNeeded(
@@ -197,6 +199,9 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
         res.setNumeroPermis(numeroPermis);
         res.setLicenseImageUrl(storedLicensePath); // chemin court en DB
         res.setLicenseExpiryDate(expiry);
+        res.setPrenom(prenom != null ? prenom.trim() : null);
+        res.setNom(nom != null ? nom.trim() : null);
+        res.setDateNaiss(dateNaiss);
         res.setLicenseStatus(LicenseStatus.PENDING);
 
         return reservationRepository.save(res);

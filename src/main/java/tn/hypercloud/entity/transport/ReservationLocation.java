@@ -10,6 +10,7 @@ import tn.hypercloud.entity.transport.enums.TypeVehicule;
 import tn.hypercloud.entity.user.User;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,6 +77,14 @@ public class ReservationLocation {
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private ReservationStatus statut = ReservationStatus.DRAFT;
+
+    @Column(length = 100)
+    private String prenom;
+
+    @Column(length = 100)
+    private String nom;
+
+    private LocalDateTime dateNaiss;
 
     @Column(length = 50)
     private String numeroPermis;

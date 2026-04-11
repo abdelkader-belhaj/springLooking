@@ -102,11 +102,19 @@ public class ReservationLocationController {
             @PathVariable Long id,
             @RequestParam String numeroPermis,
             @RequestParam String licenseImageUrl,
-            @RequestParam String expiryDate) {
+            @RequestParam String expiryDate,
+            @RequestParam String prenom,
+            @RequestParam String nom,
+            @RequestParam String dateNaiss) {
         LocalDateTime parsedExpiry = expiryDate.length() == 10
                 ? java.time.LocalDate.parse(expiryDate).atStartOfDay()
                 : java.time.LocalDateTime.parse(expiryDate);
-        ReservationLocation reservation = reservationService.uploadLicense(id, numeroPermis, licenseImageUrl, parsedExpiry);
+        LocalDateTime parsedDateNaiss = dateNaiss.length() == 10
+                ? java.time.LocalDate.parse(dateNaiss).atStartOfDay()
+                : java.time.LocalDateTime.parse(dateNaiss);
+        ReservationLocation reservation = reservationService.uploadLicense(id, numeroPermis, licenseImageUrl, parsedExpiry, prenom,
+                nom,
+                parsedDateNaiss);
         return ResponseEntity.ok(toDto(reservation));
     }
 
@@ -236,7 +244,9 @@ public class ReservationLocationController {
                 r.getDepositStatus(),
 
                 r.getStatut(),
-
+                r.getPrenom(),
+                r.getNom(),
+                r.getDateNaiss(),
                 r.getNumeroPermis(),
                 r.getLicenseStatus(),
                 r.getLicenseExpiryDate(),

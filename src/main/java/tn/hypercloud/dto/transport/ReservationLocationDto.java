@@ -5,6 +5,7 @@ import tn.hypercloud.entity.transport.enums.LicenseStatus;
 import tn.hypercloud.entity.transport.enums.ReservationStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,7 +33,9 @@ public record ReservationLocationDto(
         DepositStatus depositStatus,
 
         ReservationStatus statut,
-
+        String prenom,
+        String nom,
+        LocalDateTime dateNaiss,
         String numeroPermis,
         LicenseStatus licenseStatus,
         LocalDateTime licenseExpiryDate,
