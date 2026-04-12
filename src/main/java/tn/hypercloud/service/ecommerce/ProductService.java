@@ -25,6 +25,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ProductCategoryRepository productCategoryRepository;
     private final UserRepository userRepository;
+    private final FileUploadService fileUploadService;
 
     public ProductDTO createProduct(ProductDTO productDTO) {
         User user = userRepository.findById(productDTO.getUserId())
@@ -76,9 +77,14 @@ public class ProductService {
     }
 
     public void deleteProduct(Long id) {
-        if (!productRepository.existsById(id)) {
-            throw new RuntimeException("Product not found with id: " + id);
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+        
+        // Delete associated image file
+        if (product.getImage() != null && !product.getImage().isEmpty()) {
+            fileUploadService.deleteProductImage(product.getImage());
         }
+        
         productRepository.deleteById(id);
     }
 

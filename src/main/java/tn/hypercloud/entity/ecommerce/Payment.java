@@ -47,6 +47,7 @@ public class Payment {
     /** Statut du paiement */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private PaymentStatus status = PaymentStatus.pending;
 
     /** Horodatage de création (initiation du paiement) */

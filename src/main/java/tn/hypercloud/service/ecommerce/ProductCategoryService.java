@@ -76,7 +76,7 @@ public class ProductCategoryService {
     public List<ProductCategoryDTO> getRootCategories() {
         return productCategoryRepository.findByParentIsNullOrderByDisplayOrder()
                 .stream()
-                .map(this::mapToDTO)
+                .map(this::mapToDTOWithTree)
                 .collect(Collectors.toList());
     }
 
