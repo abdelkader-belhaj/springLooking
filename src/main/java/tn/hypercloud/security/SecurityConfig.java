@@ -15,8 +15,11 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -35,26 +38,47 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Desactiver CSRF (on utilise JWT, pas de session)
+                // Desactiver CSRF: l'application utilise un flux hybride JWT + session
                 .csrf(AbstractHttpConfigurer::disable)
-
+                //Session :
+    //Login==>Serveur crée une session et la stocke en mémoire==>Navigateur reçoit un cookie
+                //JWT(JSON Web Token)
+    //Login==>Serveur génère un token et l'envoie au client ==> Client stocke le token
                 // Autoriser les appels front (Angular) vers l'API
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeHttpRequests(auth -> auth
                         // Routes publiques — pas besoin de token
-                        .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers(
+                        "/api/auth/login",
+                        "/api/auth/register",
+                        "/api/auth/login-face",
+                        "/api/auth/register-face",
+                        "/api/auth/forgot-password",
+                        "/api/auth/reset-password"
+                    ).permitAll()
+
+                    .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
 
                         // Routes admin uniquement
+                        //Token ==> accès routes normales Mais : accès routes admin " YES "
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
+
+
                         // Toutes les autres routes -> token obligatoire
+                        //Token ==> accès routes normales Mais : accès routes admin " NO "
                         .anyRequest().authenticated()
                 )
 
-                // Pas de session — JWT est stateless
+                // Activer une session serveur par utilisateur
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    session
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                        .sessionFixation(sessionFixation -> sessionFixation.migrateSession())
+                        .maximumSessions(1)
+                        .maxSessionsPreventsLogin(false)
+                        .sessionRegistry(sessionRegistry()))
 
                 .authenticationProvider(authenticationProvider())
 
@@ -81,6 +105,16 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         // BCrypt hash le mot de passe automatiquement
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
     }
 
     @Bean
