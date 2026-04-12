@@ -80,9 +80,17 @@ public class CourseServiceImpl implements ICourseService {
         if (course == null) return null;
 
         // Calcul prix final
-        IDistanceService.RouteInfo route = distanceService.calculateRoute(
-                course.getLocalisationDepart(), course.getLocalisationArrivee());
-        BigDecimal prixFinal = calculateFinalPrice(route, course.getVehicule());
+        BigDecimal prixFinal = course.getDemande() != null
+                ? course.getDemande().getPrixEstime()
+                : null;
+
+        if (prixFinal == null || prixFinal.compareTo(BigDecimal.ZERO) <= 0) {
+// fallback de sécurité si demande.prixEstime absent
+            IDistanceService.RouteInfo route = distanceService.calculateRoute(
+                    course.getLocalisationDepart(), course.getLocalisationArrivee());
+            prixFinal = calculateFinalPrice(route, course.getVehicule());
+        }
+
         course.setPrixFinal(prixFinal);
 
         // Création paiement (commission 20 % automatique via @PrePersist)
