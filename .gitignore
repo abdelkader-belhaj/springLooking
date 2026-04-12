@@ -40,3 +40,6 @@ POSTMAN_AUTH_USER_GUIDE.md
 
 ### Class Index ###
 cls
+### Python virtualenv ###
+.venv/
+ai-face-service/.venv/

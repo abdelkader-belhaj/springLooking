@@ -14,6 +14,15 @@ public class UserResponse {
     private String email;
     private boolean enabled;
     private Role role;
+    private String phone;
+    private String bio;
+    private String profileImage;
+    private boolean twoFactorEnabled;
+    private LocalDateTime twoFactorActivatedAt;
+    private boolean hasFaceId;
+    private String faceModelName;
+    private String faceDetectorBackend;
+    private Double faceThreshold;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -21,10 +30,19 @@ public class UserResponse {
 
     public UserResponse(User user) {
         this.id = user.getId();
-        this.username = user.getUsername();
+        this.username = user.getFullName();
         this.email = user.getEmail();
         this.enabled = user.isEnabled();
         this.role = user.getRole();
+        this.phone = user.getPhone();
+        this.bio = user.getBio();
+        this.profileImage = user.getProfileImage();
+        this.twoFactorEnabled = user.isTwoFactorEnabled();
+        this.twoFactorActivatedAt = user.getTwoFactorActivatedAt();
+        this.hasFaceId = user.getFaceEmbedding() != null && !user.getFaceEmbedding().isBlank();
+        this.faceModelName = user.getFaceModelName();
+        this.faceDetectorBackend = user.getFaceDetectorBackend();
+        this.faceThreshold = user.getFaceThreshold();
         this.createdAt = user.getCreatedAt();
         this.updatedAt = user.getUpdatedAt();
     }
@@ -67,6 +85,78 @@ public class UserResponse {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+
+    public String getProfileImage() {
+        return profileImage;
+    }
+
+    public void setProfileImage(String profileImage) {
+        this.profileImage = profileImage;
+    }
+
+    public boolean isTwoFactorEnabled() {
+        return twoFactorEnabled;
+    }
+
+    public void setTwoFactorEnabled(boolean twoFactorEnabled) {
+        this.twoFactorEnabled = twoFactorEnabled;
+    }
+
+    public LocalDateTime getTwoFactorActivatedAt() {
+        return twoFactorActivatedAt;
+    }
+
+    public void setTwoFactorActivatedAt(LocalDateTime twoFactorActivatedAt) {
+        this.twoFactorActivatedAt = twoFactorActivatedAt;
+    }
+
+    public boolean isHasFaceId() {
+        return hasFaceId;
+    }
+
+    public void setHasFaceId(boolean hasFaceId) {
+        this.hasFaceId = hasFaceId;
+    }
+
+    public String getFaceModelName() {
+        return faceModelName;
+    }
+
+    public void setFaceModelName(String faceModelName) {
+        this.faceModelName = faceModelName;
+    }
+
+    public String getFaceDetectorBackend() {
+        return faceDetectorBackend;
+    }
+
+    public void setFaceDetectorBackend(String faceDetectorBackend) {
+        this.faceDetectorBackend = faceDetectorBackend;
+    }
+
+    public Double getFaceThreshold() {
+        return faceThreshold;
+    }
+
+    public void setFaceThreshold(Double faceThreshold) {
+        this.faceThreshold = faceThreshold;
     }
 
     public LocalDateTime getCreatedAt() {

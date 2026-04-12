@@ -34,6 +34,7 @@ public class ReservationLogement {
     private LocalDate dateFin;
 
     @Column(name = "nb_personnes", nullable = false)
+    @Builder.Default
     private int nbPersonnes = 1;
 
     @Column(name = "prix_total", precision = 10, scale = 2)
@@ -41,6 +42,7 @@ public class ReservationLogement {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private StatutReservation statut = StatutReservation.en_attente;
 
     @Column(name = "date_reservation", updatable = false)

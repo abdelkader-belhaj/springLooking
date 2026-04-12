@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import tn.hypercloud.entity.user.Role;
 import tn.hypercloud.payload.request.ChangePasswordRequest;
+import tn.hypercloud.payload.request.UpdateFaceIdRequest;
 import tn.hypercloud.payload.request.UpdateUserRequest;
 import tn.hypercloud.payload.response.ApiResponse;
 import tn.hypercloud.payload.response.UserResponse;
@@ -29,6 +30,7 @@ public class UserController {
      * Header  : Authorization: Bearer <token>
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
         return ResponseEntity.ok(
                 ApiResponse.success("Liste des users", userService.getAllUsers()));
@@ -84,6 +86,19 @@ public class UserController {
                 ApiResponse.success("Mot de passe modifie", null));
     }
 
+        /**
+         * UPDATE FACE ID
+         * Postman : PATCH http://localhost:8080/api/users/1/face-id
+         * Body    : { "imageBase64": "data:image/jpeg;base64,..." }
+         */
+        @PatchMapping("/{id}/face-id")
+        public ResponseEntity<ApiResponse<UserResponse>> updateFaceId(
+                        @PathVariable Long id,
+                        @Valid @RequestBody UpdateFaceIdRequest request) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Face ID mis a jour", userService.updateFaceId(id, request)));
+        }
+
     /**
      * CHANGE ROLE  (ADMIN seulement)
      * Postman : PATCH http://localhost:8080/api/users/1/role?role=HEBERGEUR
@@ -113,6 +128,7 @@ public class UserController {
      * Postman : GET http://localhost:8080/api/users/role/ADMIN
      */
     @GetMapping("/role/{role}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getUsersByRole(
             @PathVariable Role role) {
         return ResponseEntity.ok(

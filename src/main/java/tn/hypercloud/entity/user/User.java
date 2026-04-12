@@ -76,6 +76,16 @@ public class User implements UserDetails {
     @Column(name = "face_threshold")
     private Double faceThreshold;
 
+    @Builder.Default
+    @Column(name = "two_factor_enabled")
+    private boolean twoFactorEnabled = false;
+
+    @Column(name = "two_factor_secret", length = 255)
+    private String twoFactorSecret;
+
+    @Column(name = "two_factor_activated_at")
+    private LocalDateTime twoFactorActivatedAt;
+
 
 
 
@@ -168,7 +178,7 @@ public class User implements UserDetails {
     public boolean isCredentialsNonExpired() { return true; }
 
 // ============================================
-//  Cycle de vie JPAJPA = Java Persistence API.
+//  Cycle de vie JPA = Java Persistence API.
 //C la norme Java pour mapper les classes Java vers les tables SQL.
 // “cycle JPA” = comment l’entité naît, est gérée, se détache,  
 // puis se supprime, avec des hooks automatiques comme
