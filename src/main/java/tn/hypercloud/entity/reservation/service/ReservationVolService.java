@@ -28,11 +28,6 @@ public class ReservationVolService {
     private final PaiementVolRepository paiementRepo;
     private final VolService volService;
 
-    // ============================================================
-    //  CLIENT : CRÉER RÉSERVATION
-    //  ✅ Ne décrémente PAS les places ici
-    //  Les places sont décrémentées uniquement au paiement réussi
-    // ============================================================
     public ReservationResponse creer(String email, ReservationRequest req) {
         User touriste = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
@@ -40,7 +35,6 @@ public class ReservationVolService {
         Vol volAller = volRepo.findById(req.getVolAllerId())
                 .orElseThrow(() -> new RuntimeException("Vol aller introuvable"));
 
-        // Vérification places disponibles (sans décrémenter)
         if (volAller.getPlaces() < req.getNbPassagers())
             throw new RuntimeException("Places insuffisantes sur le vol aller");
 
@@ -52,12 +46,10 @@ public class ReservationVolService {
                 throw new RuntimeException("Places insuffisantes sur le vol retour");
         }
 
-        // Calcul prix total
         BigDecimal prix = volAller.getPrix().multiply(BigDecimal.valueOf(req.getNbPassagers()));
         if (volRetour != null)
             prix = prix.add(volRetour.getPrix().multiply(BigDecimal.valueOf(req.getNbPassagers())));
 
-        // Référence unique
         String ref = "TUN" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
 
         ReservationVol res = ReservationVol.builder()
@@ -73,9 +65,6 @@ public class ReservationVolService {
         return toResponse(reservationRepo.save(res));
     }
 
-    // ============================================================
-    //  CLIENT : VOIR MES RÉSERVATIONS
-    // ============================================================
     public List<ReservationResponse> mesReservations(String email) {
         User touriste = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
@@ -83,11 +72,6 @@ public class ReservationVolService {
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ============================================================
-    //  CLIENT : ANNULER UNE RÉSERVATION
-    //  ✅ Remet les places SEULEMENT si la réservation était payée
-    //  Si en_attente → aucune place n'avait été décrémentée
-    // ============================================================
     public void annuler(String email, Integer reservationId) {
         ReservationVol res = reservationRepo.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
@@ -95,7 +79,6 @@ public class ReservationVolService {
         if (!res.getTouriste().getEmail().equals(email))
             throw new RuntimeException("Accès refusé");
 
-        // Remettre les places seulement si la réservation était payée
         boolean estPayee = res.getPaiement() != null &&
                 res.getPaiement().getStatut() == PaiementVol.StatutPaiement.paye;
 
@@ -114,14 +97,6 @@ public class ReservationVolService {
         reservationRepo.delete(res);
     }
 
-    // ============================================================
-    //  CLIENT : PAYER UNE RÉSERVATION
-    //  ✅ Décrémente les places ICI si paiement réussi
-    //  ✅ Supprime la réservation si paiement échoué
-    //  ✅ Empêche le double paiement
-    //  Pour brancher Flouci : remplacer "boolean paiementReussi = true"
-    //  par l'appel HTTP Flouci — tout le reste reste identique
-    // ============================================================
     public ReservationResponse payer(String email, PaiementRequest req) {
         ReservationVol res = reservationRepo.findById(req.getReservationId())
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
@@ -129,17 +104,10 @@ public class ReservationVolService {
         if (!res.getTouriste().getEmail().equals(email))
             throw new RuntimeException("Accès refusé");
 
-        // Empêcher double paiement
         if (res.getPaiement() != null &&
                 res.getPaiement().getStatut() == PaiementVol.StatutPaiement.paye)
             throw new RuntimeException("Réservation déjà payée");
 
-        // -------------------------------------------------------
-        // TODO FLOUCI : remplacer cette ligne par l'appel Flouci
-        // FlouciResponse flouciRes = flouciClient.initierPaiement(res.getPrixTotal(), "TND", res.getReference());
-        // boolean paiementReussi = flouciRes.getStatut().equals("SUCCESS");
-        // String referenceTx = flouciRes.getPaymentId();
-        // -------------------------------------------------------
         boolean paiementReussi = true;
         String referenceTx = "TX-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -160,7 +128,6 @@ public class ReservationVolService {
         res.setPaiement(paiement);
 
         if (paiementReussi) {
-            // Décrémenter les places seulement si paiement ok
             Vol volAller = res.getVolAller();
             if (volAller.getPlaces() < res.getNbPassagers())
                 throw new RuntimeException("Plus de places disponibles sur le vol aller");
@@ -179,24 +146,16 @@ public class ReservationVolService {
             return toResponse(reservationRepo.save(res));
 
         } else {
-            // Paiement échoué → supprimer la réservation
             reservationRepo.delete(res);
             throw new RuntimeException("Paiement échoué, réservation annulée");
         }
     }
 
-    // ============================================================
-    //  SOCIÉTÉ : VOIR TOUTES LES RÉSERVATIONS
-    // ============================================================
     public List<ReservationResponse> toutesLesReservations() {
         return reservationRepo.findAll()
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ============================================================
-    //  SOCIÉTÉ : MODIFIER LE STATUT D'UNE RÉSERVATION
-    //  Valeurs acceptées : en_attente, paye, echec
-    // ============================================================
     public ReservationResponse modifierStatut(Integer reservationId, String nouveauStatut) {
         ReservationVol res = reservationRepo.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
@@ -215,15 +174,10 @@ public class ReservationVolService {
         return toResponse(reservationRepo.save(res));
     }
 
-    // ============================================================
-    //  SOCIÉTÉ : SUPPRIMER UNE RÉSERVATION
-    //  ✅ Restitue les places si la réservation était payée
-    // ============================================================
     public void supprimerReservation(Integer reservationId) {
         ReservationVol res = reservationRepo.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
 
-        // Restituer les places si la réservation était payée
         boolean estPayee = res.getPaiement() != null &&
                 res.getPaiement().getStatut() == PaiementVol.StatutPaiement.paye;
 
@@ -243,7 +197,7 @@ public class ReservationVolService {
     }
 
     // ============================================================
-    //  MAPPER
+    //  MAPPER — ✅ statutReservation ajouté
     // ============================================================
     private ReservationResponse toResponse(ReservationVol r) {
         PaiementVol.StatutPaiement statut = (r.getPaiement() != null)
@@ -261,6 +215,7 @@ public class ReservationVolService {
                 .prixTotal(r.getPrixTotal())
                 .dateReservation(r.getDateReservation())
                 .statutPaiement(statut)
+                .statutReservation(r.getStatutReservation()) // ✅ correction
                 .build();
     }
 }
