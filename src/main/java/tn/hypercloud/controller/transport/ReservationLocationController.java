@@ -89,6 +89,15 @@ public class ReservationLocationController {
         return ResponseEntity.ok(toDto(reservation));
     }
 
+    @PostMapping("/{id}/paiement/avance")
+    public ResponseEntity<ReservationLocationDto> payAdvance(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "CARD") PaiementMethode methode,
+            @RequestParam(required = false) String paymentIntentId) {
+        ReservationLocation reservation = reservationService.payAdvance(id, methode, paymentIntentId);
+        return ResponseEntity.ok(toDto(reservation));
+    }
+
     @PostMapping("/{id}/complete")
     public ResponseEntity<ReservationLocationDto> completeReservation(
             @PathVariable Long id,
@@ -240,8 +249,13 @@ public class ReservationLocationController {
                 r.getDateFin(),
 
                 r.getPrixTotal(),
+                r.getAdvanceAmount(),
                 r.getDepositAmount(),
                 r.getDepositStatus(),
+
+                r.getPaymentPhase(),
+                r.getAdvanceStatus(),
+                r.getPaymentIntentId(),
 
                 r.getStatut(),
                 r.getPrenom(),

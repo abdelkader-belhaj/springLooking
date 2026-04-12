@@ -10,6 +10,7 @@ import tn.hypercloud.repository.transport.*;
 import tn.hypercloud.repository.user.UserRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -73,12 +74,40 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
             throw new IllegalArgumentException("Date de fin invalide");
         }
 
-        BigDecimal prixTotal = reservation.getVehiculeAgence().getPrixKm()
-                .multiply(BigDecimal.valueOf(days));
+        BigDecimal prixUnitaire = reservation.getVehiculeAgence().getPrixKm() != null
+                ? reservation.getVehiculeAgence().getPrixKm()
+                : BigDecimal.ZERO;
+        BigDecimal prixTotal = prixUnitaire
+                .multiply(BigDecimal.valueOf(days))
+                .setScale(2, RoundingMode.HALF_UP);
         reservation.setPrixTotal(prixTotal);
-        reservation.setDepositStatus(DepositStatus.PENDING);
 
-        reservation.setStatut(ReservationStatus.KYC_PENDING);
+        if (reservation.getAdvanceAmount() == null) {
+            reservation.setAdvanceAmount(prixTotal.multiply(BigDecimal.valueOf(0.30)).setScale(2, RoundingMode.HALF_UP));
+        }
+
+        if (reservation.getDepositAmount() == null) {
+            reservation.setDepositAmount(prixTotal.multiply(BigDecimal.valueOf(0.20)).setScale(2, RoundingMode.HALF_UP));
+        }
+
+        if (reservation.getPaymentPhase() == null || reservation.getPaymentPhase().isBlank()) {
+            reservation.setPaymentPhase("DRAFT");
+        }
+
+        if (reservation.getAdvanceStatus() == null || reservation.getAdvanceStatus().isBlank()) {
+            reservation.setAdvanceStatus("PENDING");
+        }
+
+        if (reservation.getPaymentIntentId() != null && !reservation.getPaymentIntentId().isBlank()
+                || "PAID".equalsIgnoreCase(reservation.getAdvanceStatus())) {
+            reservation.setAdvanceStatus("PAID");
+            reservation.setPaymentPhase("ADVANCE_PAID");
+            reservation.setStatut(ReservationStatus.KYC_PENDING);
+        } else {
+            reservation.setStatut(ReservationStatus.DRAFT);
+        }
+
+        reservation.setDepositStatus(DepositStatus.PENDING);
         return reservationRepository.save(reservation);
     }
     @Override
@@ -134,7 +163,38 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
         ReservationLocation res = getById(id);
         if (res == null) throw new RuntimeException("Réservation non trouvée");
         res.setStatut(ReservationStatus.CANCELLED);
+        res.setPaymentPhase("CANCELLED");
         return reservationRepository.save(res);
+    }
+
+    @Override
+    @Transactional
+    public ReservationLocation payAdvance(Long id, PaiementMethode methode, String paymentIntentId) {
+        ReservationLocation reservation = getById(id);
+        if (reservation == null) {
+            throw new RuntimeException("Réservation non trouvée");
+        }
+
+        if (reservation.getStatut() == ReservationStatus.CANCELLED) {
+            throw new IllegalStateException("Impossible de payer une réservation annulée");
+        }
+
+        BigDecimal advanceAmount = reservation.getAdvanceAmount();
+        if (advanceAmount == null || advanceAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            advanceAmount = reservation.getPrixTotal()
+                    .multiply(BigDecimal.valueOf(0.30))
+                    .setScale(2, RoundingMode.HALF_UP);
+            reservation.setAdvanceAmount(advanceAmount);
+        }
+
+        reservation.setAdvanceStatus("PAID");
+        reservation.setPaymentPhase("ADVANCE_PAID");
+        reservation.setPaymentIntentId(paymentIntentId != null ? paymentIntentId.trim() : null);
+        reservation.setStatut(ReservationStatus.KYC_PENDING);
+        reservation.setDepositStatus(DepositStatus.PENDING);
+        reservation.setDateModification(LocalDateTime.now());
+
+        return reservationRepository.save(reservation);
     }
 
     @Override
@@ -146,6 +206,10 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
 
         if (reservation.getStatut() == ReservationStatus.COMPLETED) {
             throw new IllegalStateException("Réservation déjà terminée");
+        }
+
+        if (!"PAID".equalsIgnoreCase(reservation.getAdvanceStatus())) {
+            throw new IllegalStateException("L'avance de réservation doit être payée avant la clôture finale");
         }
 
         PaiementTransport paiementTransport = PaiementTransport.builder()
@@ -178,6 +242,7 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
 
         reservation.setMontantCommission(paiementTransport.getMontantCommission());
         reservation.setStatut(ReservationStatus.COMPLETED);
+        reservation.setPaymentPhase("COMPLETED");
         reservation.setDateModification(LocalDateTime.now());
 
         return reservationRepository.save(reservation);
@@ -216,6 +281,7 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
 
             // Contrat prêt à signer côté client
             res.setStatut(ReservationStatus.DEPOSIT_HELD);
+            res.setPaymentPhase("VERIFICATION_PENDING");
 
             // La caution est toujours en attente à ce stade
             if (res.getDepositStatus() == null) {
@@ -396,7 +462,7 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
     }
     @Override
     public List<ReservationLocation> getReservationsByAgence(Long agenceId) {
-        return reservationRepository.findByAgenceLocation_IdAgence(agenceId);
+        return reservationRepository.findAllByAgenceId(agenceId);
     }
     @Override
     @Transactional
@@ -416,6 +482,7 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
 
         res.setDepositStatus(DepositStatus.HELD);
         res.setStatut(ReservationStatus.DEPOSIT_HELD);
+        res.setPaymentPhase("VERIFICATION_PENDING");
         res.setDateModification(LocalDateTime.now());
 
         // optionnel: logger le mode PHYSICAL/ONLINE

@@ -63,12 +63,25 @@ public class ReservationLocation {
 
     @Column(precision = 10, scale = 2, nullable = false)
     private BigDecimal prixTotal;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal advanceAmount;
+
     @Column(columnDefinition = "TEXT")
     private String note;
     @Column(precision = 10, scale = 2)
     private BigDecimal depositAmount;
     @Column(precision = 10, scale = 2)
     private BigDecimal montantCommission;
+
+    @Column(length = 30)
+    private String paymentPhase;
+
+    @Column(length = 30)
+    private String advanceStatus;
+
+    @Column(length = 120)
+    private String paymentIntentId;
 
     @Enumerated(EnumType.STRING)
     @Builder.Default

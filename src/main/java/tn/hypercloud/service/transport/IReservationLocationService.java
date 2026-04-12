@@ -19,6 +19,7 @@ public interface IReservationLocationService {
     // Actions sur la réservation
     ReservationLocation confirmReservation(Long id);
     ReservationLocation cancelReservation(Long id);
+    ReservationLocation payAdvance(Long id, PaiementMethode methode, String paymentIntentId);
 
     @Transactional
     ReservationLocation completeReservation(Long id, PaiementMethode methode);

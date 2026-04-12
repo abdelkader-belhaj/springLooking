@@ -29,8 +29,13 @@ public record ReservationLocationDto(
         LocalDateTime dateFin,
 
         BigDecimal prixTotal,
+        BigDecimal advanceAmount,
         BigDecimal depositAmount,
         DepositStatus depositStatus,
+
+        String paymentPhase,
+        String advanceStatus,
+        String paymentIntentId,
 
         ReservationStatus statut,
         String prenom,
