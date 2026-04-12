@@ -3,6 +3,7 @@ package tn.hypercloud.service.transport;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tn.hypercloud.dto.transport.PaymentVerificationStatusDto;
 import tn.hypercloud.entity.transport.*;
 import tn.hypercloud.entity.transport.enums.*;
 import tn.hypercloud.repository.transport.*;
@@ -10,6 +11,7 @@ import tn.hypercloud.repository.transport.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,6 +21,7 @@ public class CourseServiceImpl implements ICourseService {
 
     private final CourseRepository courseRepository;
     private final PaiementRepository paiementRepository;
+    private final IPaiementService paiementService;
     private final IDistanceService distanceService;// ton service OSRM
     private final ChauffeurRepository chauffeurRepository;
     private final WalletTransactionRepository walletTransactionRepository;
@@ -69,8 +72,22 @@ public class CourseServiceImpl implements ICourseService {
     }
 
     @Override
+    @Transactional
     public Course startCourse(Long id) {
-        return updateStatut(id, CourseStatus.STARTED);
+        Course course = getCourseById(id);
+        if (course == null) {
+            return null;
+        }
+
+        course.setStatut(CourseStatus.STARTED);
+
+        // La pré-autorisation d'annulation n'est utile qu'en phase ACCEPTED.
+        if (course.getDemande() != null) {
+            course.getDemande().setPrixClientAccepte(Boolean.FALSE);
+            course.getDemande().setApprobationClientRequise(Boolean.FALSE);
+        }
+
+        return courseRepository.save(course);
     }
 
     @Override
@@ -93,26 +110,116 @@ public class CourseServiceImpl implements ICourseService {
 
         course.setPrixFinal(prixFinal);
 
-        // Création paiement (commission 20 % automatique via @PrePersist)
-        PaiementTransport paiementTransport = PaiementTransport.builder()
-                .course(course)
-                .montantTotal(prixFinal)
-                .methode(PaiementMethode.CARD)
-                .statut(PaiementStatut.COMPLETED)
-                .datePaiement(LocalDateTime.now())
-                .build();
+        // Sécurité paiement: on termine la course mais on ne crée PAS le paiement ici.
+        // Le paiement est créé uniquement après:
+        // 1) confirmation client
+        // 2) validation chauffeur par code
+        course.setPaymentClientConfirmed(false);
+        course.setPaymentVerifiedByDriver(false);
+        course.setPaymentVerificationCode(null);
+        course.setPaymentIntentId(null);
+        course.setPaymentClientConfirmedAt(null);
+        course.setPaymentVerifiedAt(null);
+        course.setStatut(CourseStatus.COMPLETED);
 
-        paiementTransport = paiementRepository.save(paiementTransport);
+        return courseRepository.save(course);
+    }
 
-        // === MISE À JOUR SOLDE CHAUFFEUR + TRANSACTION ===
+    @Override
+    @Transactional
+    public PaymentVerificationStatusDto confirmClientPayment(Long courseId, String paymentIntentId) {
+        Course course = getCourseById(courseId);
+        if (course == null) {
+            throw new RuntimeException("Course non trouvée: " + courseId);
+        }
+
+        if (course.getStatut() == CourseStatus.CANCELLED) {
+            throw new IllegalStateException("Paiement impossible: la course est annulée");
+        }
+
+        if (course.getStatut() != CourseStatus.COMPLETED) {
+            throw new IllegalStateException("Le paiement client n'est possible qu'après course terminée");
+        }
+
+        if (course.getPaiementTransport() != null) {
+            return toPaymentStatusDto(course);
+        }
+
+        if (course.getPaymentVerificationCode() == null || course.getPaymentVerificationCode().isBlank()) {
+            course.setPaymentVerificationCode(generateVerificationCode());
+        }
+
+        course.setPaymentClientConfirmed(true);
+        course.setPaymentClientConfirmedAt(LocalDateTime.now());
+
+        if (paymentIntentId != null && !paymentIntentId.isBlank()) {
+            course.setPaymentIntentId(paymentIntentId);
+        }
+
+        Course saved = courseRepository.save(course);
+        return toPaymentStatusDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public PaymentVerificationStatusDto verifyPaymentByDriver(Long courseId, String verificationCode) {
+        Course course = getCourseById(courseId);
+        if (course == null) {
+            throw new RuntimeException("Course non trouvée: " + courseId);
+        }
+
+        if (course.getStatut() == CourseStatus.CANCELLED) {
+            throw new IllegalStateException("Validation impossible: la course est annulée");
+        }
+
+        if (!course.isPaymentClientConfirmed()) {
+            throw new IllegalStateException("Paiement client non confirmé");
+        }
+
+        if (verificationCode == null || verificationCode.isBlank()) {
+            throw new IllegalArgumentException("Code de vérification requis");
+        }
+
+        String expectedCode = course.getPaymentVerificationCode();
+        if (expectedCode == null || !expectedCode.equals(verificationCode.trim())) {
+            throw new IllegalStateException("Code de vérification invalide");
+        }
+
+        course.setPaymentVerifiedByDriver(true);
+        course.setPaymentVerifiedAt(LocalDateTime.now());
+
+        if (course.getPaiementTransport() == null) {
+            createPaymentAfterVerification(course);
+        }
+
+        Course saved = courseRepository.save(course);
+        return toPaymentStatusDto(saved);
+    }
+
+    @Override
+    public PaymentVerificationStatusDto getPaymentVerificationStatus(Long courseId) {
+        Course course = getCourseById(courseId);
+        if (course == null) {
+            throw new RuntimeException("Course non trouvée: " + courseId);
+        }
+
+        return toPaymentStatusDto(course);
+    }
+
+    private void createPaymentAfterVerification(Course course) {
+        PaiementTransport paiementTransport = paiementService.createCompletedCoursePayment(
+            course,
+            PaiementMethode.CARD
+        );
+
         BigDecimal montantNet = paiementTransport.getMontantNet();
         Chauffeur chauffeur = course.getChauffeur();
 
-// Protection null-safe + mise à jour du solde
         BigDecimal nouveauSolde = (chauffeur.getSolde() != null ? chauffeur.getSolde() : BigDecimal.ZERO)
                 .add(montantNet);
         chauffeur.setSolde(nouveauSolde);
         chauffeurRepository.save(chauffeur);
+
         walletTransactionRepository.save(WalletTransaction.builder()
                 .chauffeur(chauffeur)
                 .montant(montantNet)
@@ -121,12 +228,35 @@ public class CourseServiceImpl implements ICourseService {
                 .paiementTransport(paiementTransport)
                 .build());
 
-        // Mise à jour course
         course.setPaiementTransport(paiementTransport);
         course.setMontantCommission(paiementTransport.getMontantCommission());
-        course.setStatut(CourseStatus.COMPLETED);
+    }
 
-        return courseRepository.save(course);
+    private PaymentVerificationStatusDto toPaymentStatusDto(Course course) {
+        AnnulationTransport annulation = course.getAnnulationTransport();
+        PaiementTransport paiement = course.getPaiementTransport();
+
+        return PaymentVerificationStatusDto.builder()
+                .courseId(course.getIdCourse())
+                .clientConfirmed(course.isPaymentClientConfirmed())
+                .driverVerified(course.isPaymentVerifiedByDriver())
+            .paymentCreated(paiement != null)
+            .cancelled(course.getStatut() == CourseStatus.CANCELLED)
+                .verificationCode(course.getPaymentVerificationCode())
+                .paymentIntentId(course.getPaymentIntentId())
+            .paymentStatut(paiement != null ? paiement.getStatut() : null)
+            .penaltyAmount(annulation != null ? annulation.getMontantPenalite() : BigDecimal.ZERO)
+            .refundAmount(annulation != null ? annulation.getMontantRemboursement() : BigDecimal.ZERO)
+            .cancelledBy(annulation != null ? annulation.getAnnulePar() : null)
+            .cancellationReason(annulation != null ? annulation.getRaison() : null)
+                .clientConfirmedAt(course.getPaymentClientConfirmedAt())
+                .driverVerifiedAt(course.getPaymentVerifiedAt())
+                .build();
+    }
+
+    private String generateVerificationCode() {
+        int code = ThreadLocalRandom.current().nextInt(100000, 1000000);
+        return String.valueOf(code);
     }
     private BigDecimal calculateFinalPrice(IDistanceService.RouteInfo route, Vehicule vehicule) {
         BigDecimal baseFee = new BigDecimal("5.00");

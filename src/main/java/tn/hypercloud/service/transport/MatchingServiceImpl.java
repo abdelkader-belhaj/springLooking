@@ -216,14 +216,21 @@ public class MatchingServiceImpl implements IMatchingService {
     }
     @Override
     public List<Matching> getMatchingsByChauffeurId(Long chauffeurId) {
-        return matchingRepository.findByChauffeur_IdChauffeur(chauffeurId);
+        return matchingRepository.findByChauffeurIdExcludingCancelled(
+            chauffeurId,
+            DemandeStatus.CANCELLED
+        );
     }
     // MatchingServiceImpl
     @Override
     @Transactional(readOnly = true)
     public List<MatchingDriverCardDTO> getMatchingCardsByChauffeurId(Long chauffeurId) {
         return matchingRepository
-                .findDetailedByChauffeurAndStatut(chauffeurId, MatchingStatut.PROPOSED)
+            .findDetailedByChauffeurAndStatut(
+                chauffeurId,
+                MatchingStatut.PROPOSED,
+                DemandeStatus.CANCELLED
+            )
                 .stream()
                 .map(this::toCardDto)
                 .toList();

@@ -2,6 +2,9 @@ package tn.hypercloud.controller.transport;
 
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import tn.hypercloud.dto.transport.ClientPaymentConfirmRequestDto;
+import tn.hypercloud.dto.transport.DriverPaymentVerifyRequestDto;
+import tn.hypercloud.dto.transport.PaymentVerificationStatusDto;
 import tn.hypercloud.entity.transport.Course;
 import tn.hypercloud.entity.transport.enums.CourseStatus;
 import tn.hypercloud.service.transport.ICourseService;
@@ -44,7 +47,29 @@ public class CourseController {
 
     @PutMapping("/{id}/terminer")
     public Course completeCourse(@PathVariable Long id) {
-        return courseService.completeCourse(id);        // → COMPLETED + déclenche paiement
+        return courseService.completeCourse(id);        // → COMPLETED (paiement sécurisé séparé)
+    }
+
+    @PostMapping("/{id}/paiement/client-confirmer")
+    public PaymentVerificationStatusDto confirmClientPayment(
+            @PathVariable Long id,
+            @RequestBody(required = false) ClientPaymentConfirmRequestDto request
+    ) {
+        String paymentIntentId = request != null ? request.getPaymentIntentId() : null;
+        return courseService.confirmClientPayment(id, paymentIntentId);
+    }
+
+    @PostMapping("/{id}/paiement/valider-chauffeur")
+    public PaymentVerificationStatusDto verifyPaymentByDriver(
+            @PathVariable Long id,
+            @RequestBody DriverPaymentVerifyRequestDto request
+    ) {
+        return courseService.verifyPaymentByDriver(id, request.getVerificationCode());
+    }
+
+    @GetMapping("/{id}/paiement/statut")
+    public PaymentVerificationStatusDto getPaymentStatus(@PathVariable Long id) {
+        return courseService.getPaymentVerificationStatus(id);
     }
 
     @PutMapping("/{id}/annuler")

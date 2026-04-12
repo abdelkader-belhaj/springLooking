@@ -62,6 +62,24 @@ public class Course {
     @Column(precision = 10, scale = 2)
     private BigDecimal montantCommission;
 
+    @Column(name = "payment_client_confirmed", nullable = false)
+    @Builder.Default
+    private boolean paymentClientConfirmed = false;
+
+    @Column(name = "payment_verified_by_driver", nullable = false)
+    @Builder.Default
+    private boolean paymentVerifiedByDriver = false;
+
+    @Column(name = "payment_verification_code", length = 12)
+    private String paymentVerificationCode;
+
+    @Column(name = "payment_intent_id", length = 128)
+    private String paymentIntentId;
+
+    private LocalDateTime paymentClientConfirmedAt;
+
+    private LocalDateTime paymentVerifiedAt;
+
     @Column(updatable = false)
     private LocalDateTime dateCreation;
 

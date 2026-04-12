@@ -45,6 +45,15 @@ public class DemandeCourse {
     @Column(name = "prix_estime", precision = 10, scale = 2)
     private BigDecimal prixEstime;
 
+    @Column(name = "approbation_client_requise")
+    private Boolean approbationClientRequise;
+
+    @Column(name = "prix_client_accepte")
+    private Boolean prixClientAccepte;
+
+    @Column(name = "prix_propose", precision = 38, scale = 2)
+    private BigDecimal prixPropose;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
@@ -63,6 +72,12 @@ public class DemandeCourse {
     protected void onCreate() {
         dateCreation = LocalDateTime.now();
         dateModification = LocalDateTime.now();
+        if (approbationClientRequise == null) {
+            approbationClientRequise = Boolean.TRUE;
+        }
+        if (prixClientAccepte == null) {
+            prixClientAccepte = Boolean.FALSE;
+        }
     }
 
     @PreUpdate

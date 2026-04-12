@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import tn.hypercloud.entity.transport.Chauffeur;
 import tn.hypercloud.entity.transport.DemandeCourse;
 import tn.hypercloud.entity.transport.Matching;
+import tn.hypercloud.entity.transport.enums.DemandeStatus;
 import tn.hypercloud.entity.transport.enums.MatchingStatut;
 
 import java.util.List;
@@ -26,12 +27,27 @@ left join fetch d.localisationDepart ld
 left join fetch d.localisationArrivee la
 where ch.idChauffeur = :chauffeurId
 and m.statut = :statut
+    and (d is null or d.statut <> :cancelledStatus)
 order by m.dateCreation desc
 """)
     List<Matching> findDetailedByChauffeurAndStatut(
             @Param("chauffeurId") Long chauffeurId,
-            @Param("statut") MatchingStatut statut
+            @Param("statut") MatchingStatut statut,
+            @Param("cancelledStatus") DemandeStatus cancelledStatus
     );
+
+        @Query("""
+    select m from Matching m
+    left join fetch m.demande d
+    left join fetch m.chauffeur ch
+    where ch.idChauffeur = :chauffeurId
+    and (d is null or d.statut <> :cancelledStatus)
+    order by m.dateCreation desc
+    """)
+        List<Matching> findByChauffeurIdExcludingCancelled(
+            @Param("chauffeurId") Long chauffeurId,
+            @Param("cancelledStatus") DemandeStatus cancelledStatus
+        );
 
     @Query("""
 select m from Matching m

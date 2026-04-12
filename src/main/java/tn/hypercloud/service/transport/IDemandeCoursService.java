@@ -1,8 +1,10 @@
 package tn.hypercloud.service.transport;
 
+import tn.hypercloud.dto.transport.DemandePreauthResponseDto;
 import tn.hypercloud.entity.transport.DemandeCourse;
 import tn.hypercloud.entity.transport.enums.DemandeStatus;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface IDemandeCoursService {
@@ -23,4 +25,8 @@ public interface IDemandeCoursService {
      * Appelé par PUT /hypercloud/demandes-courses/{id}/matching
      */
     DemandeCourse startMatching(Long id);
+
+    DemandePreauthResponseDto preAuthorizePayment(Long demandeId, BigDecimal holdAmount, String paymentMethodRef);
+
+    DemandePreauthResponseDto preAuthorizePenalty(Long demandeId, BigDecimal penaltyAmount, String paymentMethodRef);
 }
