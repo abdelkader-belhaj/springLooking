@@ -32,28 +32,29 @@ public class RealTimeTransportController {
 
     public void updateDriverLocation(@Payload LocationUpdateDTO update) {
         try {
-            Chauffeur chauffeur = chauffeurService.getChauffeurById(update.getChauffeurId());
+            if (update.getChauffeurId() != null) {
+                Chauffeur chauffeur = chauffeurService.getChauffeurById(update.getChauffeurId());
 
-            Localisation pos = chauffeur.getPositionActuelle();
+                Localisation pos = chauffeur.getPositionActuelle();
 
-            if (pos == null) {
-                // Création d'une nouvelle position (cascade ALL va la sauvegarder)
-                pos = Localisation.builder()
-                        .latitude(update.getLatitude())
-                        .longitude(update.getLongitude())
-                        .build();
-                chauffeur.setPositionActuelle(pos);
-            } else {
-                // Mise à jour existante
-                pos.setLatitude(update.getLatitude());
-                pos.setLongitude(update.getLongitude());
+                if (pos == null) {
+                    pos = Localisation.builder()
+                            .latitude(update.getLatitude())
+                            .longitude(update.getLongitude())
+                            .build();
+                    chauffeur.setPositionActuelle(pos);
+                } else {
+                    pos.setLatitude(update.getLatitude());
+                    pos.setLongitude(update.getLongitude());
+                }
+
+                chauffeurService.save(chauffeur);
             }
 
-            chauffeurService.save(chauffeur);   // ← Important : cette méthode doit exister dans ton service
-
-            // Diffusion en temps réel à tous les clients qui suivent cette course (carte Angular)
-            String destination = "/topic/course/" + update.getCourseId() + "/location";
-            messagingTemplate.convertAndSend(destination, update);
+            if (update.getCourseId() != null) {
+                String destination = "/topic/course/" + update.getCourseId() + "/location";
+                messagingTemplate.convertAndSend(destination, update);
+            }
 
         } catch (Exception e) {
             System.err.println("❌ Erreur mise à jour position chauffeur : " + e.getMessage());

@@ -14,6 +14,8 @@ import java.math.BigDecimal;
 public class LocationUpdateDTO {
     private Long courseId;           // ID de la course en cours
     private Long chauffeurId;
+    private Long clientId;
+    private String actorType; // CHAUFFEUR | CLIENT
     private BigDecimal latitude;
     private BigDecimal longitude;
     // Optionnel : timestamp, vitesse, etc.

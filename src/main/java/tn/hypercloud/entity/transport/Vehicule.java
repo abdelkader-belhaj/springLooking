@@ -6,6 +6,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "vehicules")
@@ -50,6 +54,13 @@ public class Vehicule {
     @Builder.Default
     private VehiculeStatut statut = VehiculeStatut.ACTIVE;
 
+    @Column(name = "photo_urls", columnDefinition = "TEXT")
+    private String photoUrlsSerialized;
+
+    @Transient
+    @Builder.Default
+    private List<String> photoUrls = new ArrayList<>();
+
     @Column(updatable = false)
     private LocalDateTime dateCreation;
 
@@ -57,12 +68,42 @@ public class Vehicule {
 
     @PrePersist
     protected void onCreate() {
+        syncPhotoUrlsToSerialized();
         dateCreation = LocalDateTime.now();
         dateModification = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
+        syncPhotoUrlsToSerialized();
         dateModification = LocalDateTime.now();
+    }
+
+    @PostLoad
+    protected void onLoad() {
+        syncSerializedToPhotoUrls();
+    }
+
+    private void syncPhotoUrlsToSerialized() {
+        if (photoUrls == null || photoUrls.isEmpty()) {
+            photoUrlsSerialized = null;
+            return;
+        }
+
+        photoUrlsSerialized = photoUrls.stream()
+                .filter(path -> path != null && !path.isBlank())
+                .collect(Collectors.joining("||"));
+    }
+
+    private void syncSerializedToPhotoUrls() {
+        if (photoUrlsSerialized == null || photoUrlsSerialized.isBlank()) {
+            photoUrls = new ArrayList<>();
+            return;
+        }
+
+        photoUrls = Arrays.stream(photoUrlsSerialized.split("\\\\|\\\\|"))
+                .map(String::trim)
+                .filter(path -> !path.isEmpty())
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 }

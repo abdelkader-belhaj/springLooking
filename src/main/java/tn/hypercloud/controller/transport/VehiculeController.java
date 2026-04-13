@@ -1,7 +1,9 @@
 package tn.hypercloud.controller.transport;
 
 import lombok.AllArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import tn.hypercloud.entity.transport.Vehicule;
 import tn.hypercloud.service.transport.*;
 
@@ -39,6 +41,11 @@ public class VehiculeController {
         return vehiculeService.getAllVehicules();
     }
 
+    @GetMapping("/chauffeur/{chauffeurId}")
+    public List<Vehicule> getVehiculesByChauffeurId(@PathVariable Long chauffeurId) {
+        return vehiculeService.getVehiculesByChauffeurId(chauffeurId);
+    }
+
     @GetMapping("/actifs")
     public List<Vehicule> getActiveVehicules() {
         return vehiculeService.getActiveVehicules();
@@ -52,5 +59,21 @@ public class VehiculeController {
     @PutMapping("/{id}/desactiver")
     public Vehicule deactivateVehicule(@PathVariable Long id) {
         return vehiculeService.deactivateVehicule(id);
+    }
+
+    @PostMapping(value = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Vehicule uploadVehiculePhotos(
+            @PathVariable Long id,
+            @RequestParam("files") List<MultipartFile> files
+    ) {
+        return vehiculeService.uploadVehiculePhotos(id, files);
+    }
+
+    @DeleteMapping("/{id}/photos")
+    public Vehicule removeVehiculePhoto(
+            @PathVariable Long id,
+            @RequestParam("photoUrl") String photoUrl
+    ) {
+        return vehiculeService.removeVehiculePhoto(id, photoUrl);
     }
 }

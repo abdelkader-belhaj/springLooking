@@ -59,7 +59,7 @@ public class CourseServiceImpl implements ICourseService {
 
     @Override
     public List<Course> getCoursesByChauffeur(Long chauffeurId) {
-        return courseRepository.findByChauffeur_IdChauffeur(chauffeurId);
+        return courseRepository.findHistoryByChauffeurId(chauffeurId);
     }
 
     @Override
