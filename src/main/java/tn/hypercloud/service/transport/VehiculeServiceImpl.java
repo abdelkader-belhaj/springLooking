@@ -39,6 +39,22 @@ public class VehiculeServiceImpl implements IVehiculeService {
         if (vehiculeRepository.existsByNumeroPlaque(vehicule.getNumeroPlaque())) {
             throw new IllegalArgumentException("Ce numéro de plaque existe déjà!");
         }
+
+        Long chauffeurId = vehicule.getChauffeur() != null ? vehicule.getChauffeur().getIdChauffeur() : null;
+        if (chauffeurId == null) {
+            throw new IllegalArgumentException("Le chauffeur est obligatoire pour ajouter un véhicule");
+        }
+
+        boolean hasActiveVehicule = !vehiculeRepository
+                .findByChauffeur_IdChauffeurAndStatut(chauffeurId, VehiculeStatut.ACTIVE)
+                .isEmpty();
+
+        if (vehicule.getStatut() == null) {
+            vehicule.setStatut(hasActiveVehicule ? VehiculeStatut.INACTIVE : VehiculeStatut.ACTIVE);
+        } else if (vehicule.getStatut() == VehiculeStatut.ACTIVE) {
+            deactivateOtherVehicules(chauffeurId, null);
+        }
+
         Vehicule saved = vehiculeRepository.save(vehicule);
         LOGGER.info("[Vehicule][Add] saved idVehicule={}, numeroPlaque={}",
                 saved.getIdVehicule(),
@@ -48,7 +64,13 @@ public class VehiculeServiceImpl implements IVehiculeService {
 
     @Override
     public Vehicule updateVehicule(Vehicule vehicule) {
-        return vehiculeRepository.save(vehicule);
+        Vehicule saved = vehiculeRepository.save(vehicule);
+        if (saved.getStatut() == VehiculeStatut.ACTIVE
+                && saved.getChauffeur() != null
+                && saved.getChauffeur().getIdChauffeur() != null) {
+            deactivateOtherVehicules(saved.getChauffeur().getIdChauffeur(), saved.getIdVehicule());
+        }
+        return saved;
     }
 
     @Override
@@ -113,6 +135,12 @@ public class VehiculeServiceImpl implements IVehiculeService {
     public Vehicule activateVehicule(Long id) {
         Vehicule vehicule = getVehiculeById(id);
         if (vehicule == null) return null;
+
+        if (vehicule.getChauffeur() == null || vehicule.getChauffeur().getIdChauffeur() == null) {
+            throw new IllegalArgumentException("Le véhicule n'est pas associé à un chauffeur");
+        }
+
+        deactivateOtherVehicules(vehicule.getChauffeur().getIdChauffeur(), vehicule.getIdVehicule());
         vehicule.setStatut(VehiculeStatut.ACTIVE);
         return vehiculeRepository.save(vehicule);
     }
@@ -254,5 +282,21 @@ public class VehiculeServiceImpl implements IVehiculeService {
             return ".jpg";
         }
         return filename.substring(dotIndex).toLowerCase();
+    }
+
+    private void deactivateOtherVehicules(Long chauffeurId, Long vehiculeToKeepActiveId) {
+        List<Vehicule> vehicules = vehiculeRepository.findByChauffeur_IdChauffeur(chauffeurId);
+        for (Vehicule other : vehicules) {
+            boolean shouldKeepActive = vehiculeToKeepActiveId != null
+                    && vehiculeToKeepActiveId.equals(other.getIdVehicule());
+            if (shouldKeepActive) {
+                continue;
+            }
+
+            if (other.getStatut() == VehiculeStatut.ACTIVE) {
+                other.setStatut(VehiculeStatut.INACTIVE);
+                vehiculeRepository.save(other);
+            }
+        }
     }
 }

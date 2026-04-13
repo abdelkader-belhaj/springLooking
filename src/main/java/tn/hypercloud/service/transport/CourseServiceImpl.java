@@ -24,6 +24,7 @@ public class CourseServiceImpl implements ICourseService {
     private final IPaiementService paiementService;
     private final IDistanceService distanceService;// ton service OSRM
     private final ChauffeurRepository chauffeurRepository;
+    private final VehiculeRepository vehiculeRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final MatchingRepository matchingRepository;
 
@@ -79,12 +80,19 @@ public class CourseServiceImpl implements ICourseService {
             return null;
         }
 
+        DemandeCourse demande = course.getDemande();
+        if (demande != null
+                && demande.getStatut() == DemandeStatus.ACCEPTED
+                && Boolean.TRUE.equals(demande.getApprobationClientRequise())) {
+            throw new IllegalStateException("Le client doit confirmer la course acceptee avant le demarrage");
+        }
+
         course.setStatut(CourseStatus.STARTED);
 
         // La pré-autorisation d'annulation n'est utile qu'en phase ACCEPTED.
-        if (course.getDemande() != null) {
-            course.getDemande().setPrixClientAccepte(Boolean.FALSE);
-            course.getDemande().setApprobationClientRequise(Boolean.FALSE);
+        if (demande != null) {
+            demande.setPrixClientAccepte(Boolean.FALSE);
+            demande.setApprobationClientRequise(Boolean.FALSE);
         }
 
         return courseRepository.save(course);
@@ -206,6 +214,22 @@ public class CourseServiceImpl implements ICourseService {
         return toPaymentStatusDto(course);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isClientConfirmationReceived(Long courseId) {
+        Course course = getCourseById(courseId);
+        if (course == null) {
+            throw new RuntimeException("Course non trouvée: " + courseId);
+        }
+
+        DemandeCourse demande = course.getDemande();
+        if (demande == null) {
+            return false;
+        }
+
+        return Boolean.FALSE.equals(demande.getApprobationClientRequise());
+    }
+
     private void createPaymentAfterVerification(Course course) {
         PaiementTransport paiementTransport = paiementService.createCompletedCoursePayment(
             course,
@@ -291,7 +315,12 @@ public class CourseServiceImpl implements ICourseService {
             throw new IllegalArgumentException("Localisation de départ requise pour le matching");
         }
 
+        if (demande.getTypeVehiculeDemande() == null) {
+            throw new IllegalArgumentException("Type de véhicule demandé requis pour le matching");
+        }
+
         Localisation pickup = demande.getLocalisationDepart();
+        TypeVehicule requestedType = demande.getTypeVehiculeDemande();
 
         // Chauffeurs disponibles + approuvés
         List<Chauffeur> candidates = chauffeurRepository.findByDisponibiliteAndStatut(
@@ -299,6 +328,7 @@ public class CourseServiceImpl implements ICourseService {
 
         // Filtre + trie par distance réelle
         List<Chauffeur> nearbyDrivers = candidates.stream()
+                .filter(ch -> hasActiveVehicleOfType(ch, requestedType))
                 .filter(ch -> ch.getPositionActuelle() != null)
                 .filter(ch -> {
                     Localisation driverPos = ch.getPositionActuelle();
@@ -327,6 +357,17 @@ public class CourseServiceImpl implements ICourseService {
                 .collect(Collectors.toList());
 
         return matchingRepository.saveAll(matchings);
+    }
+
+    private boolean hasActiveVehicleOfType(Chauffeur chauffeur, TypeVehicule requestedType) {
+        if (chauffeur == null || chauffeur.getIdChauffeur() == null || requestedType == null) {
+            return false;
+        }
+
+        return vehiculeRepository
+                .findByChauffeur_IdChauffeurAndStatut(chauffeur.getIdChauffeur(), VehiculeStatut.ACTIVE)
+                .stream()
+                .anyMatch(v -> requestedType.equals(v.getTypeVehicule()));
     }
     @Override
     public List<Course> getCoursesByClient(Long clientId) {

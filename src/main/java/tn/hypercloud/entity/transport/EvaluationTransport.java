@@ -37,10 +37,19 @@ public class EvaluationTransport {
     @JsonIgnore
     private User evalue;
     @Transient
+    private Long courseId;
+
+    @Transient
     private Long evaluateurId;
 
     @Transient
     private Long evalueId;
+
+    @Transient
+    private String evaluateurNom;
+
+    @Transient
+    private String evalueNom;
     // CLIENT_TO_DRIVER ou DRIVER_TO_CLIENT
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

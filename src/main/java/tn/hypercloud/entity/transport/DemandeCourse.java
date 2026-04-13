@@ -3,6 +3,7 @@ package tn.hypercloud.entity.transport;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tn.hypercloud.entity.user.User;
+import tn.hypercloud.entity.transport.enums.ConfirmationClientStatut;
 import tn.hypercloud.entity.transport.enums.DemandeStatus;
 import tn.hypercloud.entity.transport.enums.TypeVehicule;
 import jakarta.persistence.*;
@@ -55,6 +56,11 @@ public class DemandeCourse {
     private BigDecimal prixPropose;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "confirmation_client_statut", nullable = false)
+    @Builder.Default
+    private ConfirmationClientStatut confirmationClientStatut = ConfirmationClientStatut.PENDING;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private DemandeStatus statut = DemandeStatus.PENDING;
@@ -77,6 +83,9 @@ public class DemandeCourse {
         }
         if (prixClientAccepte == null) {
             prixClientAccepte = Boolean.FALSE;
+        }
+        if (confirmationClientStatut == null) {
+            confirmationClientStatut = ConfirmationClientStatut.PENDING;
         }
     }
 

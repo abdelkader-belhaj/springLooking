@@ -22,6 +22,7 @@ public interface ICourseService {
     PaymentVerificationStatusDto confirmClientPayment(Long courseId, String paymentIntentId);
     PaymentVerificationStatusDto verifyPaymentByDriver(Long courseId, String verificationCode);
     PaymentVerificationStatusDto getPaymentVerificationStatus(Long courseId);
+    boolean isClientConfirmationReceived(Long courseId);
     @Transactional
     List<Matching> createProximityMatchings(DemandeCourse demande, double maxDistanceKm);
     List<Course> getCoursesByClient(Long clientId);

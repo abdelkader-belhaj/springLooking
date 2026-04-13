@@ -29,4 +29,8 @@ public interface IDemandeCoursService {
     DemandePreauthResponseDto preAuthorizePayment(Long demandeId, BigDecimal holdAmount, String paymentMethodRef);
 
     DemandePreauthResponseDto preAuthorizePenalty(Long demandeId, BigDecimal penaltyAmount, String paymentMethodRef);
+
+    DemandeCourse confirmAcceptedByClient(Long demandeId);
+
+    DemandeCourse cancelClientConfirmation(Long demandeId);
 }

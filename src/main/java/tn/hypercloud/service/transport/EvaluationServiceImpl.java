@@ -2,7 +2,9 @@ package tn.hypercloud.service.transport;
 
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import tn.hypercloud.entity.transport.enums.EvaluationType;
 import tn.hypercloud.entity.transport.Course;
+import java.util.stream.Collectors;
 import tn.hypercloud.entity.transport.EvaluationTransport;
 import tn.hypercloud.entity.user.User;
 import tn.hypercloud.repository.transport.CourseRepository;
@@ -45,11 +47,20 @@ public class EvaluationServiceImpl implements IEvaluationService {
             throw new IllegalArgumentException("Evalue ID is required");
         }
 
-        return evaluationRepository.save(evaluationTransport);
+        EvaluationTransport existing = evaluationRepository.findFirstByCourseAndType(
+                evaluationTransport.getCourse(),
+                evaluationTransport.getType()
+        );
+
+        if (existing != null) {
+            return enrich(existing);
+        }
+
+        return enrich(evaluationRepository.save(evaluationTransport));
     }
     @Override
     public EvaluationTransport updateEvaluation(EvaluationTransport evaluationTransport) {
-        return evaluationRepository.save(evaluationTransport);
+        return enrich(evaluationRepository.save(evaluationTransport));
     }
 
     @Override
@@ -59,21 +70,34 @@ public class EvaluationServiceImpl implements IEvaluationService {
 
     @Override
     public EvaluationTransport getEvaluationById(Long id) {
-        return evaluationRepository.findById(id).orElse(null);
+        return evaluationRepository.findById(id).map(this::enrich).orElse(null);
     }
 
     @Override
     public List<EvaluationTransport> getAllEvaluations() {
-        return evaluationRepository.findAll();
+        return evaluationRepository.findAll().stream().map(this::enrich).collect(Collectors.toList());
     }
 
     @Override
     public List<EvaluationTransport> getEvaluationsByCourse(Course course) {
-        return evaluationRepository.findByCourse(course);
+        return evaluationRepository.findByCourse(course).stream().map(this::enrich).collect(Collectors.toList());
     }
 
     @Override
     public List<EvaluationTransport> getEvaluationsForUser(User user) {
-        return evaluationRepository.findByEvalue(user);
+        return evaluationRepository.findByEvalue(user).stream().map(this::enrich).collect(Collectors.toList());
+    }
+
+    private EvaluationTransport enrich(EvaluationTransport evaluation) {
+        if (evaluation == null) {
+            return null;
+        }
+
+        evaluation.setCourseId(evaluation.getCourse() != null ? evaluation.getCourse().getIdCourse() : null);
+        evaluation.setEvaluateurId(evaluation.getEvaluateur() != null ? evaluation.getEvaluateur().getId() : null);
+        evaluation.setEvalueId(evaluation.getEvalue() != null ? evaluation.getEvalue().getId() : null);
+        evaluation.setEvaluateurNom(evaluation.getEvaluateur() != null ? evaluation.getEvaluateur().getUsername() : null);
+        evaluation.setEvalueNom(evaluation.getEvalue() != null ? evaluation.getEvalue().getUsername() : null);
+        return evaluation;
     }
 }

@@ -26,6 +26,15 @@ public class Chauffeur {
     private User utilisateur;
     @Transient
     private Long utilisateurId;
+
+    @Transient
+    private String nomAffichage;
+
+    @Transient
+    private String emailAffichage;
+
+    @Transient
+    private String photoProfil;
     @Column(nullable = false, length = 20)
     private String telephone;
 

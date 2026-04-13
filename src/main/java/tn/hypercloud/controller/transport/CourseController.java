@@ -75,6 +75,14 @@ public class CourseController {
         return courseService.getPaymentVerificationStatus(id);
     }
 
+    @GetMapping("/{id}/confirmation-client")
+    public Map<String, Object> getClientConfirmationStatus(@PathVariable Long id) {
+        return Map.of(
+                "courseId", id,
+                "clientConfirmed", courseService.isClientConfirmationReceived(id)
+        );
+    }
+
     @PutMapping("/{id}/annuler")
     public Course cancelCourse(@PathVariable Long id) {
         return courseService.updateStatut(id, CourseStatus.CANCELLED);

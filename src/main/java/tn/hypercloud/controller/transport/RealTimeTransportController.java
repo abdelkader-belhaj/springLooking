@@ -10,10 +10,16 @@ import tn.hypercloud.dto.transport.ChatMessageDTO;
 import tn.hypercloud.dto.transport.DriverNotificationDTO;
 import tn.hypercloud.dto.transport.LocationUpdateDTO;
 import tn.hypercloud.entity.transport.Chauffeur;
+import tn.hypercloud.entity.transport.Course;
 import tn.hypercloud.entity.transport.Localisation;
+import tn.hypercloud.entity.transport.enums.CourseStatus;
+import tn.hypercloud.repository.transport.CourseRepository;
 import tn.hypercloud.service.transport.IChauffeurService;
 import tn.hypercloud.service.transport.ICourseService;
 import tn.hypercloud.service.transport.MessageServiceImpl;
+
+import java.util.List;
+import java.util.Optional;
 
 @Controller
 @RequiredArgsConstructor
@@ -22,6 +28,7 @@ public class RealTimeTransportController {
     private final SimpMessagingTemplate messagingTemplate;
     private final IChauffeurService chauffeurService;
     private final ICourseService courseService;   // injecté pour usage futur
+    private final CourseRepository courseRepository;
     private final MessageServiceImpl messageServiceImpl;
 
     /**
@@ -49,11 +56,35 @@ public class RealTimeTransportController {
                 }
 
                 chauffeurService.save(chauffeur);
+
+        // Diffusion dashboard: detail chauffeur + flux global.
+        messagingTemplate.convertAndSend(
+            "/topic/chauffeur/" + update.getChauffeurId() + "/location",
+            update
+        );
+        messagingTemplate.convertAndSend("/topic/chauffeurs/location", update);
             }
 
             if (update.getCourseId() != null) {
                 String destination = "/topic/course/" + update.getCourseId() + "/location";
                 messagingTemplate.convertAndSend(destination, update);
+                } else if (update.getChauffeurId() != null) {
+                Optional<Course> activeCourse = courseRepository
+                    .findTopByChauffeur_IdChauffeurAndStatutInOrderByDateModificationDesc(
+                        update.getChauffeurId(),
+                        List.of(CourseStatus.ACCEPTED, CourseStatus.STARTED, CourseStatus.IN_PROGRESS)
+                    );
+                activeCourse.ifPresent(course -> messagingTemplate.convertAndSend(
+                    "/topic/course/" + course.getIdCourse() + "/location",
+                    LocationUpdateDTO.builder()
+                        .courseId(course.getIdCourse())
+                        .chauffeurId(update.getChauffeurId())
+                        .clientId(update.getClientId())
+                        .actorType(update.getActorType())
+                        .latitude(update.getLatitude())
+                        .longitude(update.getLongitude())
+                        .build()
+                ));
             }
 
         } catch (Exception e) {

@@ -5,14 +5,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.entity.transport.DemandeCourse;
 import tn.hypercloud.entity.transport.Matching;
+import tn.hypercloud.entity.transport.Vehicule;
 import tn.hypercloud.entity.transport.enums.DemandeStatus;
 import tn.hypercloud.entity.transport.enums.TypeVehicule;
+import tn.hypercloud.entity.transport.enums.VehiculeStatut;
 import tn.hypercloud.entity.user.User;
 import tn.hypercloud.repository.transport.DemandeCoursRepository;
+import tn.hypercloud.repository.transport.VehiculeRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -22,6 +26,7 @@ public class TransportationBookingServiceImpl implements ITransportationBookingS
     private final IMatchingService matchingService;
     private final DemandeCoursRepository demandeCoursRepository;
     private final IDistanceService distanceService;
+    private final VehiculeRepository vehiculeRepository;
 
     // ─────────────────────────────────────────────────────────────
     // 1. CREATE BOOKING REQUEST (client side)
@@ -63,17 +68,33 @@ public class TransportationBookingServiceImpl implements ITransportationBookingS
 
         BigDecimal baseFee = new BigDecimal("5.00");
 
-        BigDecimal pricePerKm = switch (typeVehicule) {
-            case ECONOMY -> new BigDecimal("2.50");
-            case PREMIUM -> new BigDecimal("3.80");
-            case VAN     -> new BigDecimal("4.50");
-        };
+        Optional<Vehicule> vehiculeOpt = vehiculeRepository
+                .findByTypeVehiculeAndStatut(typeVehicule, VehiculeStatut.ACTIVE)
+                .stream()
+                .filter(v -> v.getPrixKm() != null && v.getPrixMinute() != null)
+                .findFirst();
 
-        BigDecimal pricePerMin = switch (typeVehicule) {
-            case ECONOMY -> new BigDecimal("0.40");
-            case PREMIUM -> new BigDecimal("0.60");
-            case VAN     -> new BigDecimal("0.70");
-        };
+        BigDecimal pricePerKm;
+        BigDecimal pricePerMin;
+
+        if (vehiculeOpt.isPresent()) {
+            Vehicule vehicule = vehiculeOpt.get();
+            pricePerKm = vehicule.getPrixKm();
+            pricePerMin = vehicule.getPrixMinute();
+        } else {
+            // Fallback tarifs de sécurité si aucune config véhicule n'est disponible.
+            pricePerKm = switch (typeVehicule) {
+                case ECONOMY -> new BigDecimal("2.50");
+                case PREMIUM -> new BigDecimal("3.80");
+                case VAN -> new BigDecimal("4.50");
+            };
+
+            pricePerMin = switch (typeVehicule) {
+                case ECONOMY -> new BigDecimal("0.40");
+                case PREMIUM -> new BigDecimal("0.60");
+                case VAN -> new BigDecimal("0.70");
+            };
+        }
 
         BigDecimal distanceCost = pricePerKm.multiply(BigDecimal.valueOf(route.distanceKm()));
         BigDecimal timeCost     = pricePerMin.multiply(BigDecimal.valueOf(route.durationMinutes()));

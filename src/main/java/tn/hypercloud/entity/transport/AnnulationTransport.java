@@ -1,6 +1,6 @@
 package tn.hypercloud.entity.transport;
 
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import tn.hypercloud.entity.transport.enums.AnnulePar;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,6 +25,7 @@ public class AnnulationTransport {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_course", nullable = false, unique = true)
+    @JsonIgnore
     private Course course;
 
     @Enumerated(EnumType.STRING)

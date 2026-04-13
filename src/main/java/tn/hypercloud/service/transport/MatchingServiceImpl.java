@@ -8,6 +8,7 @@ import tn.hypercloud.dto.transport.DriverNotificationDTO;
 import tn.hypercloud.dto.transport.MatchingDriverCardDTO;
 import tn.hypercloud.entity.transport.*;
 import tn.hypercloud.entity.transport.enums.*;
+import tn.hypercloud.entity.transport.enums.ConfirmationClientStatut;
 import tn.hypercloud.repository.transport.*;
 
 import java.time.LocalDateTime;
@@ -85,10 +86,12 @@ public class MatchingServiceImpl implements IMatchingService {
         List<Vehicule> vehiculesActifs = vehiculeRepository.findByChauffeur(chauffeur)
                 .stream()
                 .filter(v -> v.getStatut() == VehiculeStatut.ACTIVE)
+                .filter(v -> demande.getTypeVehiculeDemande() == null
+                        || v.getTypeVehicule() == demande.getTypeVehiculeDemande())
                 .toList();
 
         if (vehiculesActifs.isEmpty()) {
-            throw new RuntimeException("Le chauffeur n'a aucun véhicule actif");
+            throw new RuntimeException("Le chauffeur n'a aucun véhicule actif compatible avec le type demandé");
         }
         Vehicule vehiculeChoisi = vehiculesActifs.get(0);
 
@@ -107,6 +110,8 @@ public class MatchingServiceImpl implements IMatchingService {
 
         // 5. Mettre à jour la DemandeCourse
         demande.setStatut(DemandeStatus.ACCEPTED);
+        demande.setApprobationClientRequise(Boolean.TRUE);
+        demande.setConfirmationClientStatut(ConfirmationClientStatut.PENDING);
         demandeCoursRepository.save(demande);
 
         // 6. Création automatique de la Course

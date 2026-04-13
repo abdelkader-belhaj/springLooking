@@ -1,12 +1,21 @@
 package tn.hypercloud.service.transport;
 
 import lombok.AllArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tn.hypercloud.controller.transport.RealTimeTransportController;
 import tn.hypercloud.dto.transport.DemandePreauthResponseDto;
+import tn.hypercloud.dto.transport.DriverNotificationDTO;
+import tn.hypercloud.entity.transport.Course;
 import tn.hypercloud.entity.transport.DemandeCourse;
 import tn.hypercloud.entity.transport.Localisation;
+import tn.hypercloud.entity.transport.Matching;
+import tn.hypercloud.entity.transport.enums.ConfirmationClientStatut;
 import tn.hypercloud.entity.transport.enums.DemandeStatus;
+import tn.hypercloud.entity.transport.enums.MatchingStatut;
+import tn.hypercloud.repository.transport.CourseRepository;
+import tn.hypercloud.repository.transport.MatchingRepository;
 import tn.hypercloud.entity.user.User;
 import tn.hypercloud.repository.transport.DemandeCoursRepository;
 import tn.hypercloud.repository.transport.LocalisationRepository;
@@ -24,9 +33,13 @@ public class DemandeCoursServiceImpl implements IDemandeCoursService {
     private static final BigDecimal PENALTY_PREAUTH_RATIO = new BigDecimal("0.20");
 
     private final DemandeCoursRepository demandeCoursRepository;
+    private final CourseRepository courseRepository;
+    private final MatchingRepository matchingRepository;
     private final UserRepository userRepository;
     private final LocalisationRepository localisationRepository;
     private final IMatchingService matchingService;        // ← INJECTION
+    private final RealTimeTransportController realTimeController;
+    private final SimpMessagingTemplate messagingTemplate;
 
     // ====================== ADD (création par client) ======================
     @Override
@@ -85,17 +98,23 @@ public class DemandeCoursServiceImpl implements IDemandeCoursService {
 
     @Override
     public DemandeCourse getDemandeCoursById(Long id) {
-        return demandeCoursRepository.findById(id).orElse(null);
+        DemandeCourse demande = demandeCoursRepository.findDetailedById(id).orElse(null);
+        enrichClientFacingDetails(demande);
+        return demande;
     }
 
     @Override
     public List<DemandeCourse> getAllDemandeCourses() {
-        return demandeCoursRepository.findAll();
+        List<DemandeCourse> demandes = demandeCoursRepository.findAll();
+        demandes.forEach(this::enrichClientFacingDetails);
+        return demandes;
     }
 
     @Override
     public List<DemandeCourse> getDemandesByStatut(DemandeStatus statut) {
-        return demandeCoursRepository.findByStatut(statut);
+        List<DemandeCourse> demandes = demandeCoursRepository.findByStatut(statut);
+        demandes.forEach(this::enrichClientFacingDetails);
+        return demandes;
     }
 
     @Override
@@ -103,7 +122,15 @@ public class DemandeCoursServiceImpl implements IDemandeCoursService {
         DemandeCourse demande = getDemandeCoursById(id);
         if (demande == null) return null;
         demande.setStatut(statut);
-        return demandeCoursRepository.save(demande);
+
+        if (statut == DemandeStatus.CANCELLED && demande.getCourse() != null) {
+            demande.getCourse().setStatut(tn.hypercloud.entity.transport.enums.CourseStatus.CANCELLED);
+            courseRepository.save(demande.getCourse());
+        }
+
+        DemandeCourse saved = demandeCoursRepository.save(demande);
+        enrichClientFacingDetails(saved);
+        return saved;
     }
 
     // ====================== WORKFLOW MATCHING ======================
@@ -138,6 +165,7 @@ public class DemandeCoursServiceImpl implements IDemandeCoursService {
         // 2. Déclenchement du broadcast (création des N Matching PROPOSED)
         matchingService.proposeMatchingsToAvailableDrivers(saved);
 
+        enrichClientFacingDetails(saved);
         return saved;
     }
 
@@ -222,5 +250,121 @@ public class DemandeCoursServiceImpl implements IDemandeCoursService {
                 .authorizationRef(authorizationRef)
                 .message("Pré-autorisation pénalité (20%) validée")
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public DemandeCourse confirmAcceptedByClient(Long demandeId) {
+        DemandeCourse demande = getDemandeCoursById(demandeId);
+        if (demande == null) {
+            throw new RuntimeException("Demande de course non trouvée");
+        }
+
+        if (demande.getStatut() != DemandeStatus.ACCEPTED) {
+            throw new IllegalStateException("La demande doit etre en statut ACCEPTED pour etre confirmee");
+        }
+
+        if (demande.getCourse() == null) {
+            throw new IllegalStateException("La course n'est pas encore associee a la demande");
+        }
+
+        if (Boolean.FALSE.equals(demande.getApprobationClientRequise())) {
+            enrichClientFacingDetails(demande);
+            return demande;
+        }
+
+        demande.setApprobationClientRequise(Boolean.FALSE);
+        demande.setDateModification(LocalDateTime.now());
+        demande.setConfirmationClientStatut(ConfirmationClientStatut.CONFIRMED);
+        DemandeCourse saved = demandeCoursRepository.save(demande);
+        enrichClientFacingDetails(saved);
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public DemandeCourse cancelClientConfirmation(Long demandeId) {
+        DemandeCourse demande = getDemandeCoursById(demandeId);
+        if (demande == null) {
+            throw new RuntimeException("Demande de course non trouvée");
+        }
+
+        if (demande.getStatut() != DemandeStatus.ACCEPTED) {
+            throw new IllegalStateException("Seule une demande ACCEPTED peut annuler la confirmation chauffeur");
+        }
+
+        Course course = demande.getCourse();
+        if (course == null) {
+            throw new IllegalStateException("Aucune course associée à la demande");
+        }
+
+        Matching matching = course.getMatching();
+        Long previousChauffeurId = course.getChauffeur() != null ? course.getChauffeur().getIdChauffeur() : null;
+        Long previousCourseId = course.getIdCourse();
+
+        if (matching != null) {
+            matching.setStatut(MatchingStatut.REJECTED);
+            matching.setCourse(null);
+            matchingRepository.save(matching);
+        }
+
+        courseRepository.delete(course);
+
+        demande.setCourse(null);
+        demande.setStatut(DemandeStatus.MATCHING);
+        demande.setApprobationClientRequise(Boolean.FALSE);
+        demande.setConfirmationClientStatut(ConfirmationClientStatut.CANCELLED);
+        demande.setDateModification(LocalDateTime.now());
+        DemandeCourse saved = demandeCoursRepository.save(demande);
+
+        if (previousChauffeurId != null) {
+            DriverNotificationDTO notif = DriverNotificationDTO.builder()
+                    .type("COURSE_CONFIRMATION_CANCELLED")
+                    .titre("Confirmation annulée")
+                    .message("Le client a annulé cette proposition. Retour au dashboard.")
+                    .courseId(previousCourseId)
+                    .data(java.util.Map.of(
+                            "demandeId", demandeId,
+                            "courseId", previousCourseId != null ? previousCourseId : 0
+                    ))
+                    .build();
+
+            realTimeController.sendNotificationToDriver(previousChauffeurId, notif);
+        }
+
+    if (previousCourseId != null) {
+        messagingTemplate.convertAndSend(
+            "/topic/course/" + previousCourseId + "/status",
+            java.util.Map.of(
+                "courseId", previousCourseId,
+                "statut", "CANCELLED",
+                "confirmationCancelled", true,
+                "demandeId", demandeId
+            )
+        );
+    }
+
+        // Relancer une nouvelle vague de propositions chauffeur sans annuler toute la demande.
+        matchingService.proposeMatchingsToAvailableDrivers(saved);
+
+        enrichClientFacingDetails(saved);
+        return saved;
+    }
+
+    private void enrichClientFacingDetails(DemandeCourse demande) {
+        if (demande == null || demande.getCourse() == null || demande.getCourse().getChauffeur() == null) {
+            return;
+        }
+
+        tn.hypercloud.entity.transport.Chauffeur chauffeur = demande.getCourse().getChauffeur();
+        if (chauffeur.getUtilisateur() == null) {
+            return;
+        }
+
+        User user = chauffeur.getUtilisateur();
+        chauffeur.setUtilisateurId(user.getId());
+        chauffeur.setNomAffichage(user.getUsername());
+        chauffeur.setEmailAffichage(user.getEmail());
+        chauffeur.setPhotoProfil(user.getProfileImage());
     }
 }

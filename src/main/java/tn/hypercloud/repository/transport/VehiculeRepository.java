@@ -13,7 +13,9 @@ public interface VehiculeRepository extends JpaRepository<Vehicule, Long> {
     List<Vehicule> findByChauffeur(Chauffeur chauffeur);
     List<Vehicule> findByChauffeur_IdChauffeur(Long chauffeurId);
     List<Vehicule> findByTypeVehicule(TypeVehicule typeVehicule);
+    List<Vehicule> findByTypeVehiculeAndStatut(TypeVehicule typeVehicule, VehiculeStatut statut);
     List<Vehicule> findByStatut(VehiculeStatut statut);
+    List<Vehicule> findByChauffeur_IdChauffeurAndStatut(Long chauffeurId, VehiculeStatut statut);
     boolean existsByNumeroPlaque(String numeroPlaque);
 
 }

@@ -89,6 +89,7 @@ public class Course {
     private PaiementTransport paiementTransport;
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<EvaluationTransport> evaluationTransports;
 
     @OneToOne(mappedBy = "course", cascade = CascadeType.ALL)

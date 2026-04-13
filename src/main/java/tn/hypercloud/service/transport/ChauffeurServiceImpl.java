@@ -142,8 +142,21 @@ public class ChauffeurServiceImpl implements IChauffeurService {
             throw new RuntimeException("Chauffeur non trouvé");
         }
 
-        // Mise à jour de la position (cascade = ALL donc JPA gère tout seul)
-        chauffeur.setPositionActuelle(position);
+        // Mettre a jour l'entite existante evite de recreer une localisation a chaque ping.
+        Localisation current = chauffeur.getPositionActuelle();
+        if (current == null) {
+            current = Localisation.builder()
+                    .latitude(position.getLatitude())
+                    .longitude(position.getLongitude())
+                    .adresse(position.getAdresse())
+                    .build();
+            chauffeur.setPositionActuelle(current);
+        } else {
+            current.setLatitude(position.getLatitude());
+            current.setLongitude(position.getLongitude());
+            current.setAdresse(position.getAdresse());
+        }
+
         return chauffeurRepository.save(chauffeur);
     }
     @Override

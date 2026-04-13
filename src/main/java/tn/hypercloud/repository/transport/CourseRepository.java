@@ -9,6 +9,7 @@ import tn.hypercloud.entity.transport.enums.CourseStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface CourseRepository extends JpaRepository<Course, Long> {
     List<Course> findByChauffeur(Chauffeur chauffeur);
@@ -16,6 +17,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     List<Course> findByDateCreationBetween(LocalDateTime start, LocalDateTime end);
     List<Course> findByChauffeur_IdChauffeur(Long idChauffeur);
     List<Course> findByDemande_Client_Id(Long clientId);
+    Optional<Course> findTopByChauffeur_IdChauffeurAndStatutInOrderByDateModificationDesc(Long idChauffeur, List<CourseStatus> statuts);
 
     @Query("""
         select c
