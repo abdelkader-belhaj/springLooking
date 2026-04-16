@@ -10,6 +10,7 @@ import tn.hypercloud.service.transport.IWalletTransactionService;
 import tn.hypercloud.repository.transport.ChauffeurRepository;
 import tn.hypercloud.repository.transport.AgenceLocationRepository;
 
+import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -24,19 +25,49 @@ public class WalletTransactionController {
     // Historique d'un chauffeur (ex: /api/wallet/chauffeur/5/transactions)
     @GetMapping("/chauffeur/{chauffeurId}/transactions")
     public ResponseEntity<List<WalletTransaction>> getChauffeurTransactions(@PathVariable Long chauffeurId) {
-        Chauffeur chauffeur = chauffeurRepository.findById(chauffeurId)
-                .orElseThrow(() -> new RuntimeException("Chauffeur non trouvé"));
-        List<WalletTransaction> transactions = walletTransactionService.getTransactionsByChauffeur(chauffeur);
-        return ResponseEntity.ok(transactions);
+        try {
+            Chauffeur chauffeur = chauffeurRepository.findById(chauffeurId).orElse(null);
+            if (chauffeur == null) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+
+            List<WalletTransaction> transactions = walletTransactionService.getTransactionsByChauffeur(chauffeur);
+            return ResponseEntity.ok(transactions);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+    }
+
+    // Historique d'un chauffeur résolu via userId
+    @GetMapping("/chauffeur/utilisateur/{userId}/transactions")
+    public ResponseEntity<List<WalletTransaction>> getChauffeurTransactionsByUserId(@PathVariable Long userId) {
+        try {
+            Chauffeur chauffeur = chauffeurRepository.findByUtilisateur_Id(userId).orElse(null);
+            if (chauffeur == null) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+
+            List<WalletTransaction> transactions = walletTransactionService.getTransactionsByChauffeur(chauffeur);
+            return ResponseEntity.ok(transactions);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
     }
 
     // Historique d'une agence
     @GetMapping("/agence/{agenceId}/transactions")
     public ResponseEntity<List<WalletTransaction>> getAgenceTransactions(@PathVariable Long agenceId) {
-        AgenceLocation agence = agenceLocationRepository.findById(agenceId)
-                .orElseThrow(() -> new RuntimeException("Agence non trouvée"));
-        List<WalletTransaction> transactions = walletTransactionService.getTransactionsByAgence(agence);
-        return ResponseEntity.ok(transactions);
+        try {
+            AgenceLocation agence = agenceLocationRepository.findById(agenceId).orElse(null);
+            if (agence == null) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+
+            List<WalletTransaction> transactions = walletTransactionService.getTransactionsByAgence(agence);
+            return ResponseEntity.ok(transactions);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
     }
 
     // Dernières transactions (pour dashboard admin)

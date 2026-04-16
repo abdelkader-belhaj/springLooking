@@ -86,8 +86,12 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
             reservation.setAdvanceAmount(prixTotal.multiply(BigDecimal.valueOf(0.30)).setScale(2, RoundingMode.HALF_UP));
         }
 
+        // ⭐ DEPOSIT CALCULATION: 20% of vehicle price (prixVehicule)
         if (reservation.getDepositAmount() == null) {
-            reservation.setDepositAmount(prixTotal.multiply(BigDecimal.valueOf(0.20)).setScale(2, RoundingMode.HALF_UP));
+            BigDecimal vehiclePrice = reservation.getVehiculeAgence().getPrixVehicule() != null
+                    ? reservation.getVehiculeAgence().getPrixVehicule()
+                    : BigDecimal.ZERO;
+            reservation.setDepositAmount(vehiclePrice.multiply(BigDecimal.valueOf(0.20)).setScale(2, RoundingMode.HALF_UP));
         }
 
         if (reservation.getPaymentPhase() == null || reservation.getPaymentPhase().isBlank()) {

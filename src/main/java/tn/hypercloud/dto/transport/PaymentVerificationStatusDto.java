@@ -23,6 +23,9 @@ public class PaymentVerificationStatusDto {
     private String verificationCode;
     private String paymentIntentId;
     private PaiementStatut paymentStatut;
+    private BigDecimal montantBrut;
+    private BigDecimal montantPreautorise;
+    private BigDecimal montantRestant;
     private BigDecimal penaltyAmount;
     private BigDecimal refundAmount;
     private AnnulePar cancelledBy;

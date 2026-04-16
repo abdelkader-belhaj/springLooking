@@ -24,4 +24,10 @@ public interface EvaluationRepository extends JpaRepository<EvaluationTransport,
 
     @EntityGraph(attributePaths = {"course", "evaluateur", "evalue"})
     EvaluationTransport findFirstByCourseAndType(Course course, EvaluationType type);
+
+    @EntityGraph(attributePaths = {"course", "course.chauffeur", "evaluateur", "evalue"})
+    List<EvaluationTransport> findByTypeAndCourse_Chauffeur_IdChauffeur(
+            EvaluationType type,
+            Long chauffeurId
+    );
 }

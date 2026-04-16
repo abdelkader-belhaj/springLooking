@@ -58,6 +58,9 @@ public class VehiculeAgence {
     @Column(name = "prix_minute", precision = 10, scale = 2)
     private BigDecimal prixMinute;
 
+    @Column(name = "prix_vehicule", precision = 10, scale = 2)
+    private BigDecimal prixVehicule;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
@@ -115,7 +118,7 @@ public class VehiculeAgence {
             return;
         }
 
-        photoUrls = Arrays.stream(photoUrlsSerialized.split("\\\\|\\\\|"))
+        photoUrls = Arrays.stream(photoUrlsSerialized.split("\\|\\|"))
                 .map(String::trim)
                 .filter(path -> !path.isEmpty())
                 .collect(Collectors.toCollection(ArrayList::new));

@@ -92,9 +92,14 @@ public class PaiementServiceImpl implements IPaiementService {
             return existing;
         }
 
+        BigDecimal montantRestant = calculateRemainingCourseAmount(course);
+        if (montantRestant.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Montant restant invalide pour la création du paiement final");
+        }
+
         PaiementTransport paiementTransport = PaiementTransport.builder()
                 .course(course)
-                .montantTotal(course.getPrixFinal())
+                .montantTotal(montantRestant)
                 .methode(methode != null ? methode : PaiementMethode.CARD)
                 .statut(PaiementStatut.COMPLETED)
                 .datePaiement(LocalDateTime.now())
@@ -155,5 +160,22 @@ public class PaiementServiceImpl implements IPaiementService {
     @Override
     public BigDecimal getPlateformeSolde() {
         return paiementRepository.sumMontantCommissionByStatut(PaiementStatut.COMPLETED);
+    }
+
+    private BigDecimal calculateRemainingCourseAmount(Course course) {
+        BigDecimal prixFinal = course.getPrixFinal().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal montantPreautorise = BigDecimal.ZERO;
+
+        if (course.getDemande() != null && course.getDemande().getPrixPropose() != null) {
+            montantPreautorise = course.getDemande().getPrixPropose()
+                    .max(BigDecimal.ZERO)
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
+
+        if (montantPreautorise.compareTo(prixFinal) > 0) {
+            montantPreautorise = prixFinal;
+        }
+
+        return prixFinal.subtract(montantPreautorise).setScale(2, RoundingMode.HALF_UP);
     }
 }

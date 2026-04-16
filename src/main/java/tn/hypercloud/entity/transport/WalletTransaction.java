@@ -1,5 +1,6 @@
 package tn.hypercloud.entity.transport;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,10 +21,12 @@ public class WalletTransaction {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_chauffeur")
+    @JsonIgnore
     private Chauffeur chauffeur;           // null si c’est une agence ou plateforme
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_agence")
+    @JsonIgnore
     private AgenceLocation agence;         // null si c’est un chauffeur ou plateforme
 
     @Column(nullable = false, precision = 10, scale = 2)
@@ -38,6 +41,7 @@ public class WalletTransaction {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_paiement")
+    @JsonIgnore
     private PaiementTransport paiementTransport;             // lien vers le paiement source
 
     @Column(updatable = false)

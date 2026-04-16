@@ -3,6 +3,7 @@ package tn.hypercloud.service.transport;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -69,20 +70,32 @@ public class VehiculeAgenceServiceImpl implements IVehiculeAgenceService {
         existing.setCapacitePassagers(input.getCapacitePassagers());
         existing.setPrixKm(input.getPrixKm());
         existing.setPrixMinute(input.getPrixMinute());
+        existing.setPrixVehicule(input.getPrixVehicule());
         existing.setStatut(input.getStatut());
 
         return repository.save(existing);
     }
     @Override
     public void deleteVehiculeAgence(Long id) {
-        VehiculeAgence vehicule = getById(id);
-        if (vehicule != null && vehicule.getPhotoUrls() != null) {
+        VehiculeAgence vehicule = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Véhicule introuvable"));
+
+        if (vehicule.getPhotoUrls() != null) {
             for (String photoPath : vehicule.getPhotoUrls()) {
-                deletePhotoFileIfExists(normalizePhotoPath(photoPath));
+                try {
+                    deletePhotoFileIfExists(normalizePhotoPath(photoPath));
+                } catch (RuntimeException ex) {
+                    LOGGER.warn("[VehiculeAgence][Delete] photo cleanup skipped idVehiculeAgence={}, photoPath={}", id, photoPath, ex);
+                }
             }
         }
 
-        repository.deleteById(id);
+        try {
+            repository.deleteById(id);
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalStateException(
+                    "Impossible de supprimer ce véhicule car il est lié à des réservations. Désactivez-le à la place.");
+        }
 
         try {
             Path vehiculeDir = VEHICULE_AGENCE_UPLOAD_DIR.resolve(String.valueOf(id)).toAbsolutePath().normalize();
@@ -225,6 +238,10 @@ public class VehiculeAgenceServiceImpl implements IVehiculeAgenceService {
             return;
         }
 
+        if (!isSafeRelativePath(normalizedPath)) {
+            throw new IllegalArgumentException("Chemin de photo invalide");
+        }
+
         try {
             Path uploadsRoot = Path.of("uploads").toAbsolutePath().normalize();
             Path target = uploadsRoot.resolve(normalizedPath).normalize();
@@ -234,9 +251,17 @@ public class VehiculeAgenceServiceImpl implements IVehiculeAgenceService {
             }
 
             Files.deleteIfExists(target);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new RuntimeException("Suppression du fichier photo impossible", e);
         }
+    }
+
+    private boolean isSafeRelativePath(String path) {
+        if (path.contains("..") || path.contains(":") || path.startsWith("/") || path.startsWith("\\")) {
+            return false;
+        }
+
+        return !path.matches(".*[<>\"|?*].*");
     }
 
     private String getExtension(String filename) {

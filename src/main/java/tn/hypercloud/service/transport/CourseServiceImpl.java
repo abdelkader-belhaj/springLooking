@@ -259,6 +259,24 @@ public class CourseServiceImpl implements ICourseService {
     private PaymentVerificationStatusDto toPaymentStatusDto(Course course) {
         AnnulationTransport annulation = course.getAnnulationTransport();
         PaiementTransport paiement = course.getPaiementTransport();
+        BigDecimal montantBrut = course.getPrixFinal() != null ? course.getPrixFinal() : BigDecimal.ZERO;
+        BigDecimal montantPreautorise = BigDecimal.ZERO;
+
+        if (course.getDemande() != null && course.getDemande().getPrixPropose() != null) {
+            montantPreautorise = course.getDemande().getPrixPropose();
+        }
+
+        if (montantPreautorise.compareTo(BigDecimal.ZERO) < 0) {
+            montantPreautorise = BigDecimal.ZERO;
+        }
+
+        if (montantPreautorise.compareTo(montantBrut) > 0) {
+            montantPreautorise = montantBrut;
+        }
+
+        BigDecimal montantRestant = paiement != null
+                ? paiement.getMontantTotal()
+                : montantBrut.subtract(montantPreautorise).max(BigDecimal.ZERO);
 
         return PaymentVerificationStatusDto.builder()
                 .courseId(course.getIdCourse())
@@ -269,6 +287,9 @@ public class CourseServiceImpl implements ICourseService {
                 .verificationCode(course.getPaymentVerificationCode())
                 .paymentIntentId(course.getPaymentIntentId())
             .paymentStatut(paiement != null ? paiement.getStatut() : null)
+            .montantBrut(montantBrut)
+            .montantPreautorise(montantPreautorise)
+            .montantRestant(montantRestant)
             .penaltyAmount(annulation != null ? annulation.getMontantPenalite() : BigDecimal.ZERO)
             .refundAmount(annulation != null ? annulation.getMontantRemboursement() : BigDecimal.ZERO)
             .cancelledBy(annulation != null ? annulation.getAnnulePar() : null)
