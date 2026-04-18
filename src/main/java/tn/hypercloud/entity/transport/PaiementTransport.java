@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import tn.hypercloud.entity.transport.enums.PaiementMethode;
+import tn.hypercloud.entity.transport.enums.PaiementReservationPhase;
 import tn.hypercloud.entity.transport.enums.PaiementStatut;
 import tn.hypercloud.entity.transport.enums.PaiementType;
 import java.math.BigDecimal;
@@ -32,10 +33,14 @@ public class PaiementTransport {
     @JsonIgnore
     private Course course;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_reservation_location", nullable = true, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_reservation_location", nullable = true)
     @JsonIgnore
     private ReservationLocation reservationLocation;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "phase_paiement", length = 20)
+    private PaiementReservationPhase phasePaiement;
 
     @Column(precision = 10, scale = 2, nullable = false)
     private BigDecimal montantTotal;      // Payé par le client

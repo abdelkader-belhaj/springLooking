@@ -18,11 +18,11 @@ public interface IReservationLocationService {
 
     // Actions sur la réservation
     ReservationLocation confirmReservation(Long id);
-    ReservationLocation cancelReservation(Long id);
+    ReservationLocation cancelReservation(Long id, String cancelledBy, String reason);
     ReservationLocation payAdvance(Long id, PaiementMethode methode, String paymentIntentId);
 
     @Transactional
-    ReservationLocation completeReservation(Long id, PaiementMethode methode);
+    ReservationLocation completeReservation(Long id, PaiementMethode methode, String paymentIntentId);
     ReservationLocation uploadLicense(Long id, String numeroPermis, String licenseImageUrl, LocalDateTime expiry,String prenom,
                                       String nom,
                                       LocalDateTime dateNaiss);
@@ -34,5 +34,6 @@ public interface IReservationLocationService {
 
     List<ReservationLocation> getReservationsByAgence(Long agenceId);
     ReservationLocation holdDeposit(Long id, String mode);
+    ReservationLocation refundDeposit(Long id, PaiementMethode methode, String paymentIntentId);
 
 }

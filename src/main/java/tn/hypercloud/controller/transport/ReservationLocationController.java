@@ -84,8 +84,11 @@ public class ReservationLocationController {
     }
 
     @PutMapping("/{id}/annuler")
-    public ResponseEntity<ReservationLocationDto> cancel(@PathVariable Long id) {
-        ReservationLocation reservation = reservationService.cancelReservation(id);
+    public ResponseEntity<ReservationLocationDto> cancel(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "CLIENT") String cancelledBy,
+            @RequestParam(required = false) String reason) {
+        ReservationLocation reservation = reservationService.cancelReservation(id, cancelledBy, reason);
         return ResponseEntity.ok(toDto(reservation));
     }
 
@@ -101,8 +104,9 @@ public class ReservationLocationController {
     @PostMapping("/{id}/complete")
     public ResponseEntity<ReservationLocationDto> completeReservation(
             @PathVariable Long id,
-            @RequestParam(defaultValue = "CARD") PaiementMethode methode) {
-        ReservationLocation reservation = reservationService.completeReservation(id, methode);
+            @RequestParam(defaultValue = "CARD") PaiementMethode methode,
+            @RequestParam(required = false) String paymentIntentId) {
+        ReservationLocation reservation = reservationService.completeReservation(id, methode, paymentIntentId);
         return ResponseEntity.ok(toDto(reservation));
     }
 
@@ -197,6 +201,41 @@ public class ReservationLocationController {
         }
     }
 
+    @GetMapping("/{id}/final-invoice-pdf")
+    public ResponseEntity<Resource> downloadFinalInvoice(@PathVariable Long id) {
+        ReservationLocation reservation = reservationService.getById(id);
+        if (reservation == null) return ResponseEntity.notFound().build();
+
+        String phase = String.valueOf(reservation.getPaymentPhase() == null ? "" : reservation.getPaymentPhase()).toUpperCase();
+        boolean cancellationWithRefund = "CANCELLED_REFUNDED_TOTAL".equals(phase)
+            || "CANCELLED_BY_AGENCY_REFUND_TOTAL".equals(phase)
+            || "CANCELLED_DEPOSIT_REFUNDED_ADVANCE_LOST".equals(phase);
+        String downloadFileName = cancellationWithRefund
+            ? "facture_annulation_remboursement_" + id + ".pdf"
+            : "facture_location_" + id + ".pdf";
+
+        try {
+            String filePath = pdfService.generateFinalInvoicePdf(reservation);
+            Path path = Paths.get(filePath);
+            if (!path.isAbsolute()) {
+                path = Paths.get(System.getProperty("user.dir")).resolve(path).normalize();
+            }
+
+            Resource resource = new UrlResource(path.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + downloadFileName + "\"")
+                    .body(resource);
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
     private ReservationLocationDto toDto(ReservationLocation r) {
         Long clientId = (r.getClient() != null) ? r.getClient().getId() : r.getClientId();
         String clientUsername = (r.getClient() != null) ? r.getClient().getUsername() : null;
@@ -266,6 +305,8 @@ public class ReservationLocationController {
                 r.getLicenseExpiryDate(),
                 r.getLicenseImageUrl(),
                 r.getNote(),
+                r.getLicenseRejectionReason(),
+                r.getRejectionReason(),
                 contractPdfUrl,
                 photos
         );
@@ -315,6 +356,15 @@ public class ReservationLocationController {
             @PathVariable Long id,
             @RequestParam(defaultValue = "PHYSICAL") String mode) {
         ReservationLocation reservation = reservationService.holdDeposit(id, mode);
+        return ResponseEntity.ok(toDto(reservation));
+    }
+
+    @PostMapping("/{id}/refund-deposit")
+    public ResponseEntity<ReservationLocationDto> refundDeposit(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "CARD") PaiementMethode methode,
+            @RequestParam(required = false) String paymentIntentId) {
+        ReservationLocation reservation = reservationService.refundDeposit(id, methode, paymentIntentId);
         return ResponseEntity.ok(toDto(reservation));
     }
 }

@@ -70,6 +70,7 @@ public class VehiculeAgenceServiceImpl implements IVehiculeAgenceService {
         existing.setCapacitePassagers(input.getCapacitePassagers());
         existing.setPrixKm(input.getPrixKm());
         existing.setPrixMinute(input.getPrixMinute());
+        existing.setPrixJour(input.getPrixJour());
         existing.setPrixVehicule(input.getPrixVehicule());
         existing.setStatut(input.getStatut());
 

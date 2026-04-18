@@ -69,12 +69,16 @@ public class ReservationLocation {
 
     @Column(columnDefinition = "TEXT")
     private String note;
+    @Column(length = 1000)
+    private String licenseRejectionReason;
+    @Column(length = 1000)
+    private String rejectionReason;
     @Column(precision = 10, scale = 2)
     private BigDecimal depositAmount;
     @Column(precision = 10, scale = 2)
     private BigDecimal montantCommission;
 
-    @Column(length = 30)
+    @Column(length = 64)
     private String paymentPhase;
 
     @Column(length = 30)
@@ -118,8 +122,9 @@ public class ReservationLocation {
     @Builder.Default
     private List<EtatDesLieuxPhoto> etatDesLieuxPhotos = new ArrayList<>();
 
-    @OneToOne(mappedBy = "reservationLocation", cascade = CascadeType.ALL)
-    private PaiementTransport paiementTransport;
+    @OneToMany(mappedBy = "reservationLocation", cascade = CascadeType.ALL)
+    @Builder.Default
+    private List<PaiementTransport> paiementsTransport = new ArrayList<>();
 
     @Column(updatable = false)
     private LocalDateTime dateCreation;
@@ -130,11 +135,29 @@ public class ReservationLocation {
     protected void onCreate() {
         dateCreation = LocalDateTime.now();
         dateModification = LocalDateTime.now();
+        // Default before initial payment: pending hold.
+        if (depositStatus == null) {
+            depositStatus = DepositStatus.PENDING;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         dateModification = LocalDateTime.now();
+
+        // Safety net: never keep pending deposit after upfront payment / workflow progression.
+        boolean advancePaid = "PAID".equalsIgnoreCase(advanceStatus)
+                || "ADVANCE_PAID".equalsIgnoreCase(paymentPhase)
+                || statut == ReservationStatus.KYC_PENDING
+                || statut == ReservationStatus.DEPOSIT_HELD
+                || statut == ReservationStatus.CONTRACT_SIGNED
+                || statut == ReservationStatus.CONFIRMED
+                || statut == ReservationStatus.IN_PROGRESS
+                || statut == ReservationStatus.ACTIVE;
+
+        if (advancePaid && (depositStatus == null || depositStatus == DepositStatus.PENDING)) {
+            depositStatus = DepositStatus.HELD;
+        }
     }
 
     public boolean isOverlapping(LocalDateTime newStart, LocalDateTime newEnd) {

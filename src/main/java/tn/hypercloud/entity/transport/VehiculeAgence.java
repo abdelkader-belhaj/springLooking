@@ -58,6 +58,9 @@ public class VehiculeAgence {
     @Column(name = "prix_minute", precision = 10, scale = 2)
     private BigDecimal prixMinute;
 
+    @Column(name = "prix_jour", precision = 10, scale = 2)
+    private BigDecimal prixJour;
+
     @Column(name = "prix_vehicule", precision = 10, scale = 2)
     private BigDecimal prixVehicule;
 

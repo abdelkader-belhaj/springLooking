@@ -46,6 +46,8 @@ public record ReservationLocationDto(
         LocalDateTime licenseExpiryDate,
         String licenseImageUrl,
         String note,
+        String licenseRejectionReason,
+        String rejectionReason,
         String contractPdfUrl,
         List<EtatDesLieuxPhotoDto> etatDesLieuxPhotos
 
