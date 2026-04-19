@@ -1,0 +1,61 @@
+1.Ouvrir PowerShell dans le dossier du projet
+
+Ouvrir PowerShell puis aller vers le dossier du projet Spring Boot :
+
+cd C:\place\projet
+
+2.Définir les variables d’environnement (SMTP Gmail)
+
+Configurer l’email et le mot de passe d’application Gmail :
+
+$env:MAIL_USERNAME="bjgadour133@gmail.com"
+$env:MAIL_PASSWORD="shgrqmmjlcxxuivq"
+
+
+3.Lancer l’application Spring Boot
+
+Exécuter la commande suivante :
+
+.\mvnw.cmd spring-boot:run
+
+
+---------------------
+
+POST : http://localhost:8080/api/auth/forgot-password
+
+{
+  "email": "bjgadour133@gmail.com"
+}
+
+
+POST: http://localhost:8080/api/auth/reset-password
+
+
+
+{
+  "token": "49944e059dca49f69a9c46450a55cb77",
+  "newPassword": "admin321",
+  "confirmPassword": admin321
+}
+
+
+////////
+*login
+POST   http://localhost:8080/api/auth/login
+
+{
+  "email": "votre_email@test.com",
+  "password": "votre_mot_de_passe"
+}
+
+*Vérifier la session active
+GET http://localhost:8080/api/session/me
+
+==> NB : Utiliser le même onglet Postman
+
+
+*Vérifier la section selon rôle
+GET http://localhost:8080/api/session/my-section
+
+*Tester logout
+POST http://localhost:8080/api/auth/logout
