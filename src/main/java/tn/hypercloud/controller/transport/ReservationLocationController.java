@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 
 @RestController
@@ -175,12 +176,33 @@ public class ReservationLocationController {
         if (reservation == null) return ResponseEntity.notFound().build();
 
         try {
-            if (reservation.getRentalContract() == null || reservation.getRentalContract().getContractPdfUrl() == null) {
-                String generatedPath = pdfService.generateContractPdf(reservation);
-                reservation.getRentalContract().setContractPdfUrl(generatedPath);
+            // Always regenerate to serve the latest contract design.
+            String generatedPath = pdfService.generateContractPdf(reservation);
+
+            // If contract was already signed, stamp the stored signature image again on the fresh PDF.
+            if (reservation.getRentalContract() != null
+                    && reservation.getRentalContract().getSignatureImageUrl() != null
+                    && !reservation.getRentalContract().getSignatureImageUrl().isBlank()) {
+                Path signaturePath = Paths.get(reservation.getRentalContract().getSignatureImageUrl());
+                if (!signaturePath.isAbsolute()) {
+                    signaturePath = Paths.get(System.getProperty("user.dir")).resolve(signaturePath).normalize();
+                }
+
+                if (Files.exists(signaturePath) && Files.isReadable(signaturePath)) {
+                    byte[] signatureBytes = Files.readAllBytes(signaturePath);
+                    String mime = Files.probeContentType(signaturePath);
+                    if (mime == null || !mime.startsWith("image/")) {
+                        mime = "image/png";
+                    }
+                    String dataUrl = "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(signatureBytes);
+                    String signedBy = reservation.getRentalContract().getSignedBy() != null
+                            ? reservation.getRentalContract().getSignedBy()
+                            : "Client";
+                    generatedPath = pdfService.addSignatureToPdf(generatedPath, dataUrl, signedBy);
+                }
             }
 
-            String filePath = reservation.getRentalContract().getContractPdfUrl();
+            String filePath = generatedPath;
             Path path = Paths.get(filePath);
             if (!path.isAbsolute()) {
                 path = Paths.get(System.getProperty("user.dir")).resolve(path).normalize();

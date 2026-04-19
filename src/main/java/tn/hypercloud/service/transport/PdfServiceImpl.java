@@ -8,6 +8,7 @@ import tn.hypercloud.entity.transport.enums.DepositStatus;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
+import java.awt.Color;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
@@ -33,100 +34,159 @@ public class PdfServiceImpl implements PdfService {
             PdfWriter.getInstance(document, new FileOutputStream(filePath));
             document.open();
 
-            // En-tête
-            Paragraph title = new Paragraph("CONTRAT DE LOCATION - TunisiaTour",
-                    FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18));
-            title.setAlignment(Element.ALIGN_CENTER);
-            document.add(title);
-                document.add(new Paragraph("Réservation #" + res.getIdReservation()));
-                document.add(new Paragraph("Date d'émission: " + java.time.LocalDate.now()));
-            document.add(new Paragraph(" "));
+            Color primary = new Color(0, 57, 116);
+            Color accent = new Color(217, 119, 6);
+            Color border = new Color(226, 232, 240);
+            Color surface = new Color(248, 251, 255);
+            Color muted = new Color(100, 116, 139);
 
-                String clientName = res.getClient() != null && res.getClient().getUsername() != null
-                    ? res.getClient().getUsername()
-                    : "Client";
+            Font eyebrowFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f, Font.NORMAL, accent);
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20f, Font.NORMAL, primary);
+            Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f, Font.NORMAL, primary);
+            Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 10f, Font.NORMAL, new Color(51, 65, 85));
+            Font strongFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, Font.NORMAL, new Color(15, 23, 42));
+            Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 8f, Font.NORMAL, muted);
 
-                String vehicleBrand = res.getVehiculeAgence() != null && res.getVehiculeAgence().getMarque() != null
-                    ? res.getVehiculeAgence().getMarque()
-                    : "-";
-                String vehicleModel = res.getVehiculeAgence() != null && res.getVehiculeAgence().getModele() != null
-                    ? res.getVehiculeAgence().getModele()
-                    : "-";
-                String vehiclePlate = res.getVehiculeAgence() != null && res.getVehiculeAgence().getNumeroPlaque() != null
-                    ? res.getVehiculeAgence().getNumeroPlaque()
-                    : "-";
-                String vehicleType = res.getVehiculeAgence() != null && res.getVehiculeAgence().getTypeVehicule() != null
-                    ? String.valueOf(res.getVehiculeAgence().getTypeVehicule())
-                    : "-";
-                String vehicleCapacity = res.getVehiculeAgence() != null && res.getVehiculeAgence().getCapacitePassagers() != null
-                    ? String.valueOf(res.getVehiculeAgence().getCapacitePassagers())
-                    : "-";
-                BigDecimal vehiclePrice = res.getVehiculeAgence() != null && res.getVehiculeAgence().getPrixVehicule() != null
-                    ? res.getVehiculeAgence().getPrixVehicule()
-                    : BigDecimal.ZERO;
-                BigDecimal dailyRate = res.getVehiculeAgence() != null && res.getVehiculeAgence().getPrixJour() != null
-                    ? res.getVehiculeAgence().getPrixJour()
-                    : BigDecimal.ZERO;
+            String clientName = res.getClient() != null && res.getClient().getUsername() != null
+                ? res.getClient().getUsername()
+                : "Client";
 
-                document.add(new Paragraph("Client: " + clientName));
-                document.add(new Paragraph("Véhicule: " + vehicleBrand + " " + vehicleModel));
-                document.add(new Paragraph("Immatriculation: " + vehiclePlate));
+            String vehicleBrand = res.getVehiculeAgence() != null && res.getVehiculeAgence().getMarque() != null
+                ? res.getVehiculeAgence().getMarque()
+                : "-";
+            String vehicleModel = res.getVehiculeAgence() != null && res.getVehiculeAgence().getModele() != null
+                ? res.getVehiculeAgence().getModele()
+                : "-";
+            String vehiclePlate = res.getVehiculeAgence() != null && res.getVehiculeAgence().getNumeroPlaque() != null
+                ? res.getVehiculeAgence().getNumeroPlaque()
+                : "-";
+            String vehicleType = res.getVehiculeAgence() != null && res.getVehiculeAgence().getTypeVehicule() != null
+                ? String.valueOf(res.getVehiculeAgence().getTypeVehicule())
+                : "-";
+            String vehicleCapacity = res.getVehiculeAgence() != null && res.getVehiculeAgence().getCapacitePassagers() != null
+                ? String.valueOf(res.getVehiculeAgence().getCapacitePassagers())
+                : "-";
+            BigDecimal vehiclePrice = res.getVehiculeAgence() != null && res.getVehiculeAgence().getPrixVehicule() != null
+                ? res.getVehiculeAgence().getPrixVehicule()
+                : BigDecimal.ZERO;
+            BigDecimal dailyRate = res.getVehiculeAgence() != null && res.getVehiculeAgence().getPrixJour() != null
+                ? res.getVehiculeAgence().getPrixJour()
+                : BigDecimal.ZERO;
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-                String period = (res.getDateDebut() != null ? res.getDateDebut().format(formatter) : "-")
-                    + " - "
-                    + (res.getDateFin() != null ? res.getDateFin().format(formatter) : "-");
-                document.add(new Paragraph("Période: " + period));
-                document.add(new Paragraph(" "));
+            String period = (res.getDateDebut() != null ? res.getDateDebut().format(formatter) : "-")
+                + " - "
+                + (res.getDateFin() != null ? res.getDateFin().format(formatter) : "-");
 
-                Paragraph vehicleDetailsTitle = new Paragraph("Détails véhicule", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12));
-                document.add(vehicleDetailsTitle);
+            PdfPTable header = new PdfPTable(new float[] { 3.1f, 1.9f });
+            header.setWidthPercentage(100);
+            header.setSpacingAfter(10f);
 
-                PdfPTable vehicleTable = new PdfPTable(2);
-                vehicleTable.setWidthPercentage(100);
-                vehicleTable.setSpacingBefore(6f);
-                vehicleTable.setWidths(new float[]{3f, 2f});
-                addRow(vehicleTable, "Type", vehicleType);
-                addRow(vehicleTable, "Capacité passagers", vehicleCapacity);
-                addRow(vehicleTable, "Prix véhicule", money(vehiclePrice));
-                addRow(vehicleTable, "Tarif journalier", money(dailyRate));
-                document.add(vehicleTable);
-                document.add(new Paragraph(" "));
+            PdfPCell leftHeader = new PdfPCell();
+            leftHeader.setBorder(Rectangle.BOTTOM);
+            leftHeader.setBorderColor(border);
+            leftHeader.setBorderWidth(1.5f);
+            leftHeader.setPadding(8f);
+            leftHeader.addElement(new Paragraph("SERVEURHUB MOBILITY", eyebrowFont));
+            leftHeader.addElement(new Paragraph("CONTRAT DE LOCATION", titleFont));
+            leftHeader.addElement(new Paragraph("Contrat généré automatiquement pour la réservation", FontFactory.getFont(FontFactory.HELVETICA, 10f, Font.NORMAL, muted)));
+            leftHeader.addElement(new Paragraph("Réservation #" + res.getIdReservation() + "  |  Émis le " + java.time.LocalDate.now(), bodyFont));
 
-                Paragraph financeTitle = new Paragraph("Récapitulatif financier", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12));
-                document.add(financeTitle);
+            PdfPCell rightHeader = new PdfPCell();
+            rightHeader.setBorder(Rectangle.NO_BORDER);
+            rightHeader.setPadding(0f);
+            rightHeader.setHorizontalAlignment(Element.ALIGN_RIGHT);
 
-                BigDecimal total = safeMoney(res.getPrixTotal());
-                BigDecimal advance = safeMoney(res.getAdvanceAmount());
-                BigDecimal deposit = safeMoney(res.getDepositAmount());
-                BigDecimal upfront = advance.add(deposit).setScale(2, RoundingMode.HALF_UP);
-                BigDecimal finalPayment = total.subtract(advance).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+            PdfPCell statusBadge = new PdfPCell(new Phrase("CONTRAT ACTIF", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, Font.NORMAL, Color.WHITE)));
+            statusBadge.setHorizontalAlignment(Element.ALIGN_CENTER);
+            statusBadge.setPadding(8f);
+            statusBadge.setBorder(Rectangle.NO_BORDER);
+            statusBadge.setBackgroundColor(primary);
+            PdfPTable statusTable = new PdfPTable(1);
+            statusTable.setWidthPercentage(100);
+            statusTable.addCell(statusBadge);
 
-                PdfPTable financeTable = new PdfPTable(2);
-                financeTable.setWidthPercentage(100);
-                financeTable.setSpacingBefore(6f);
-                financeTable.setWidths(new float[]{3f, 2f});
-                addRow(financeTable, "Prix total location", money(total));
-                addRow(financeTable, "Avance (30%)", money(advance));
-                addRow(financeTable, "Caution", money(deposit));
-                addRow(financeTable, "Paiement initial (avance + caution)", money(upfront));
-                addRow(financeTable, "Paiement final prévu", money(finalPayment));
-                addRow(financeTable, "Phase paiement", res.getPaymentPhase() != null ? res.getPaymentPhase() : "-");
-                document.add(financeTable);
-                document.add(new Paragraph(" "));
+            PdfPTable meta = new PdfPTable(1);
+            meta.setWidthPercentage(100);
+            meta.setSpacingBefore(8f);
+            meta.addCell(metaCell("Agence", safeText(res.getAgenceLocation() != null ? res.getAgenceLocation().getNomAgence() : "Agence de location"), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f, Font.NORMAL, muted), bodyFont, border));
+            meta.addCell(metaCell("Client", safeText(clientName), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f, Font.NORMAL, muted), bodyFont, border));
+            meta.addCell(metaCell("Véhicule", safeText((vehicleBrand + " " + vehicleModel).trim()), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f, Font.NORMAL, muted), bodyFont, border));
+            meta.addCell(metaCell("Période", safeText(period), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f, Font.NORMAL, muted), bodyFont, border));
 
-                Paragraph cancellationTitle = new Paragraph("Règlement d'annulation", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12));
-                document.add(cancellationTitle);
-                document.add(new Paragraph("1) Avant paiement initial: annulation simple, aucun remboursement."));
-                document.add(new Paragraph("2) Après paiement initial et avant confirmation agence: remboursement total (avance + caution)."));
-                document.add(new Paragraph("3) Après confirmation agence: remboursement de la caution seulement, avance non remboursable."));
-                document.add(new Paragraph("4) Refus agence (permis non approuvé): remboursement total client."));
-                document.add(new Paragraph(" "));
+            rightHeader.addElement(statusTable);
+            rightHeader.addElement(meta);
 
-                document.add(new Paragraph("Conditions Générales de Vente", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12)));
-            document.add(new Paragraph("• Le locataire s’engage à restituer le véhicule en bon état."));
-            document.add(new Paragraph("• Toute dégradation sera à la charge du locataire."));
-                document.add(new Paragraph("• Une facture PDF est disponible pour chaque règlement financier et pour toute annulation avec remboursement."));
+            header.addCell(leftHeader);
+            header.addCell(rightHeader);
+            document.add(header);
+
+            PdfPTable hero = new PdfPTable(new float[] { 1.4f, 1.4f, 1.2f });
+            hero.setWidthPercentage(100);
+            hero.setSpacingAfter(12f);
+            hero.addCell(summaryCard("Client", clientName, "Réservation #" + res.getIdReservation(), surface, border, primary, bodyFont, strongFont));
+            hero.addCell(summaryCard("Véhicule", safeText((vehicleBrand + " " + vehicleModel).trim()), "Immatriculation: " + safeText(vehiclePlate), surface, border, primary, bodyFont, strongFont));
+            hero.addCell(summaryCard("Période", period, "Phase: " + safeText(res.getPaymentPhase()), surface, border, primary, bodyFont, strongFont));
+            document.add(hero);
+
+            document.add(new Paragraph("Détails véhicule", sectionFont));
+            PdfPTable vehicleTable = new PdfPTable(2);
+            vehicleTable.setWidthPercentage(100);
+            vehicleTable.setSpacingBefore(6f);
+            vehicleTable.setSpacingAfter(10f);
+            vehicleTable.setWidths(new float[] { 3f, 2f });
+            addRow(vehicleTable, "Type", vehicleType);
+            addRow(vehicleTable, "Capacité passagers", vehicleCapacity);
+            addRow(vehicleTable, "Prix véhicule", money(vehiclePrice));
+            addRow(vehicleTable, "Tarif journalier", money(dailyRate));
+            document.add(vehicleTable);
+
+            document.add(new Paragraph("Récapitulatif financier", sectionFont));
+            BigDecimal total = safeMoney(res.getPrixTotal());
+            BigDecimal advance = safeMoney(res.getAdvanceAmount());
+            BigDecimal deposit = safeMoney(res.getDepositAmount());
+            BigDecimal upfront = advance.add(deposit).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal finalPayment = total.subtract(advance).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+
+            PdfPTable financeTable = new PdfPTable(2);
+            financeTable.setWidthPercentage(100);
+            financeTable.setSpacingBefore(6f);
+            financeTable.setSpacingAfter(10f);
+            financeTable.setWidths(new float[] { 3f, 2f });
+            addRow(financeTable, "Prix total location", money(total));
+            addRow(financeTable, "Avance (30%)", money(advance));
+            addRow(financeTable, "Caution", money(deposit));
+            addRow(financeTable, "Paiement initial (avance + caution)", money(upfront));
+            addRow(financeTable, "Paiement final prévu", money(finalPayment));
+            addRow(financeTable, "Phase paiement", safeText(res.getPaymentPhase()));
+            document.add(financeTable);
+
+            document.add(new Paragraph("Clauses d'annulation", sectionFont));
+            document.add(new Paragraph("• Avant paiement initial: annulation simple, aucun remboursement.", bodyFont));
+            document.add(new Paragraph("• Après paiement initial et avant confirmation agence: remboursement total (avance + caution).", bodyFont));
+            document.add(new Paragraph("• Après confirmation agence: caution remboursée, avance non remboursable.", bodyFont));
+            document.add(new Paragraph("• Refus agence (permis non approuvé): remboursement total client.", bodyFont));
+
+            document.add(new Paragraph(" "));
+            document.add(new Paragraph("Conditions Générales", sectionFont));
+            document.add(new Paragraph("• Le locataire s'engage à restituer le véhicule en bon état.", bodyFont));
+            document.add(new Paragraph("• Toute dégradation constatée est à la charge du locataire.", bodyFont));
+            document.add(new Paragraph("• Une facture PDF est disponible pour chaque règlement financier et pour toute annulation avec remboursement.", bodyFont));
+
+            document.add(new Paragraph(" "));
+
+            PdfPTable signatureTable = new PdfPTable(2);
+            signatureTable.setWidthPercentage(100);
+            signatureTable.setSpacingBefore(8f);
+            signatureTable.setWidths(new float[] { 1f, 1f });
+            signatureTable.addCell(signatureBox("Agence", safeText(res.getAgenceLocation() != null ? res.getAgenceLocation().getNomAgence() : "Agence de location"), safeText(res.getAgenceLocation() != null ? res.getAgenceLocation().getAdresse() : "Adresse non renseignée"), primary, border, muted));
+            signatureTable.addCell(signatureBox("Client", safeText(clientName), "Signature électronique", primary, border, muted));
+            document.add(signatureTable);
+
+            Paragraph footer = new Paragraph("Document contractuel généré automatiquement. Réservation #" + res.getIdReservation() + " · " + period, footerFont);
+            footer.setAlignment(Element.ALIGN_CENTER);
+            footer.setSpacingBefore(8f);
+            document.add(footer);
 
             document.close();
             return filePath;
@@ -153,21 +213,73 @@ public class PdfServiceImpl implements PdfService {
             PdfWriter.getInstance(document, new FileOutputStream(filePath));
             document.open();
 
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-            Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+            Color primary = new Color(0, 57, 116);
+            Color accent = new Color(217, 119, 6);
+            Color border = new Color(226, 232, 240);
+            Color surface = new Color(248, 251, 255);
+            Color muted = new Color(100, 116, 139);
 
-                String titleText = cancellationWithRefund
-                    ? "FACTURE D'ANNULATION / REMBOURSEMENT"
-                    : "FACTURE FINALE LOCATION";
-                Paragraph title = new Paragraph(titleText, titleFont);
-            title.setAlignment(Element.ALIGN_CENTER);
-            document.add(title);
-            document.add(new Paragraph("Réservation #" + res.getIdReservation()));
-            document.add(new Paragraph("Date d'émission: " + java.time.LocalDate.now()));
+            Font eyebrowFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f, Font.NORMAL, accent);
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20f, Font.NORMAL, primary);
+            Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f, Font.NORMAL, primary);
+            Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f, Font.NORMAL, muted);
+            Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 10f, Font.NORMAL, new Color(51, 65, 85));
+            Font strongFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, Font.NORMAL, new Color(15, 23, 42));
+            Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 8f, Font.NORMAL, muted);
+
+            String titleText = cancellationWithRefund
+                ? "FACTURE D'ANNULATION / REMBOURSEMENT"
+                : "FACTURE FINALE LOCATION";
+
+            PdfPTable header = new PdfPTable(new float[] { 3.1f, 1.9f });
+            header.setWidthPercentage(100);
+            header.setSpacingAfter(10f);
+
+            PdfPCell leftHeader = new PdfPCell();
+            leftHeader.setBorder(Rectangle.BOTTOM);
+            leftHeader.setBorderColor(border);
+            leftHeader.setBorderWidth(1.5f);
+            leftHeader.setPadding(8f);
+            leftHeader.addElement(new Paragraph("SERVEURHUB MOBILITY", eyebrowFont));
+            leftHeader.addElement(new Paragraph(titleText, titleFont));
+            leftHeader.addElement(new Paragraph("Facture finale de clôture générée automatiquement", FontFactory.getFont(FontFactory.HELVETICA, 10, muted)));
+            leftHeader.addElement(new Paragraph("Réservation #" + res.getIdReservation() + "  |  Émise le " + java.time.LocalDate.now(), bodyFont));
             if (cancellationWithRefund) {
-                document.add(new Paragraph("Motif: " + resolveCancellationReasonLabel(phase)));
+                leftHeader.addElement(new Paragraph("Motif: " + resolveCancellationReasonLabel(phase), bodyFont));
             }
-            document.add(new Paragraph(" "));
+
+            PdfPCell rightHeader = new PdfPCell();
+            rightHeader.setBorder(Rectangle.NO_BORDER);
+            rightHeader.setPadding(0f);
+            rightHeader.setHorizontalAlignment(Element.ALIGN_RIGHT);
+
+            String badgeLabel = cancellationWithRefund
+                ? "REMBOURSEMENT"
+                : (res.getDepositStatus() == DepositStatus.RELEASED ? "ACQUITTÉE" : "EN ATTENTE");
+            PdfPCell badge = new PdfPCell(new Phrase(badgeLabel, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, Font.NORMAL, Color.WHITE)));
+            badge.setHorizontalAlignment(Element.ALIGN_CENTER);
+            badge.setPadding(8f);
+            badge.setBorder(Rectangle.NO_BORDER);
+            badge.setBackgroundColor(cancellationWithRefund ? accent : primary);
+
+            PdfPTable badgeTable = new PdfPTable(1);
+            badgeTable.setWidthPercentage(100);
+            badgeTable.addCell(badge);
+
+            PdfPTable meta = new PdfPTable(1);
+            meta.setWidthPercentage(100);
+            meta.setSpacingBefore(8f);
+            meta.addCell(metaCell("Agence", safeText(res.getAgenceLocation() != null ? res.getAgenceLocation().getNomAgence() : "Agence de location"), labelFont, bodyFont, border));
+            meta.addCell(metaCell("Véhicule", safeText(res.getVehiculeAgence() != null ? (String.valueOf(res.getVehiculeAgence().getMarque()) + " " + String.valueOf(res.getVehiculeAgence().getModele())).trim() : "Véhicule"), labelFont, bodyFont, border));
+            meta.addCell(metaCell("Phase", safeText(res.getPaymentPhase() != null ? res.getPaymentPhase() : "-"), labelFont, bodyFont, border));
+            meta.addCell(metaCell("Période", safeText(periodForInvoice(res)), labelFont, bodyFont, border));
+
+            rightHeader.addElement(badgeTable);
+            rightHeader.addElement(meta);
+
+            header.addCell(leftHeader);
+            header.addCell(rightHeader);
+            document.add(header);
 
             String clientName = res.getClient() != null && res.getClient().getUsername() != null
                     ? res.getClient().getUsername()
@@ -182,12 +294,15 @@ public class PdfServiceImpl implements PdfService {
                     + " - "
                     + (res.getDateFin() != null ? res.getDateFin().format(formatter) : "-");
 
-            document.add(new Paragraph("Client: " + clientName));
-            document.add(new Paragraph("Véhicule: " + vehicleLabel));
-            document.add(new Paragraph("Période: " + period));
-            document.add(new Paragraph(" "));
+                PdfPTable hero = new PdfPTable(new float[] { 1.45f, 1.45f, 1.1f });
+                hero.setWidthPercentage(100);
+                hero.setSpacingAfter(12f);
+                hero.addCell(summaryCard("Client", clientName, "Réservation #" + res.getIdReservation(), surface, border, primary, bodyFont, strongFont));
+                hero.addCell(summaryCard("Véhicule", vehicleLabel, safeText(res.getVehiculeAgence() != null ? res.getVehiculeAgence().getNumeroPlaque() : "-"), surface, border, primary, bodyFont, strongFont));
+                hero.addCell(summaryCard("Période", period, cancellationWithRefund ? "Facture avec remboursement" : "Facture de clôture", surface, border, primary, bodyFont, strongFont));
+                document.add(hero);
 
-            document.add(new Paragraph("Détails financiers", sectionFont));
+                document.add(new Paragraph("Détails financiers", sectionFont));
 
             BigDecimal total = res.getPrixTotal() != null ? res.getPrixTotal() : BigDecimal.ZERO;
             BigDecimal advance = res.getAdvanceAmount() != null ? res.getAdvanceAmount() : BigDecimal.ZERO;
@@ -213,29 +328,49 @@ public class PdfServiceImpl implements PdfService {
             BigDecimal totalLost = lostAdvance.setScale(2, RoundingMode.HALF_UP);
             BigDecimal netLocationPaid = total.subtract(refundedAdvance).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
 
-            PdfPTable table = new PdfPTable(2);
+            PdfPTable table = new PdfPTable(new float[] { 3.1f, 2f });
             table.setWidthPercentage(100);
-            table.setSpacingBefore(8f);
-            table.setWidths(new float[]{3f, 2f});
+            table.setSpacingBefore(6f);
+            table.setSpacingAfter(10f);
 
             addRow(table, "Prix total location", money(total));
             addRow(table, "Avance payée", money(advance));
             addRow(table, "Paiement final", money(finalPayment));
-            addRow(table, "Total payé location", money(total));
             addRow(table, "Caution", money(deposit));
             addRow(table, "Statut caution", mapDepositStatusLabel(res.getDepositStatus()));
-            addRow(table, "Caution remboursée", res.getDepositStatus() == DepositStatus.RELEASED ? "Oui" : "Non");
-            addRow(table, "Phase paiement", res.getPaymentPhase() != null ? res.getPaymentPhase() : "-");
             addRow(table, "Avance remboursée", money(refundedAdvance));
-            addRow(table, "Caution remboursée (montant)", money(refundedDeposit));
+            addRow(table, "Caution remboursée", money(refundedDeposit));
+            addRow(table, "Montant perdu", money(totalLost));
             addRow(table, "Total remboursé", money(totalRefunded));
-            addRow(table, "Montant perdu (non remboursé)", money(totalLost));
-            addRow(table, "Total net location après remboursement", money(netLocationPaid));
+            addRow(table, "Total net location", money(netLocationPaid));
             addRow(table, "Note remboursement", refundNote);
 
             document.add(table);
+
+            Paragraph note = new Paragraph("Cette facture résume les mouvements financiers de la location: avance, solde final, caution et remboursement.", FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9, muted));
+            note.setSpacingAfter(8f);
+            document.add(note);
+
+            document.add(new Paragraph("Mentions et conditions", sectionFont));
+            document.add(new Paragraph("• Les montants affichés couvrent la période réservée et la caution associée au dossier.", bodyFont));
+            document.add(new Paragraph("• La caution est restituée selon le résultat de l'état des lieux et les règles de restitution appliquées au dossier.", bodyFont));
+            document.add(new Paragraph("• En cas de solde restant dû, le paiement final doit être confirmé avant la clôture administrative.", bodyFont));
+
             document.add(new Paragraph(" "));
-            document.add(new Paragraph("Cette facture résume les mouvements financiers de la location (avance, solde final, caution et remboursement)."));
+
+            PdfPTable signatureTable = new PdfPTable(2);
+            signatureTable.setWidthPercentage(100);
+            signatureTable.setSpacingBefore(8f);
+            signatureTable.setWidths(new float[] { 1f, 1f });
+            signatureTable.addCell(signatureBox("Agence", safeText(res.getAgenceLocation() != null ? res.getAgenceLocation().getNomAgence() : "Agence de location"), safeText(res.getAgenceLocation() != null ? res.getAgenceLocation().getAdresse() : "Adresse non renseignée"), primary, border, muted));
+            signatureTable.addCell(signatureBox("Client", clientName, safeText(res.getClient() != null ? res.getClient().getUsername() : "Client"), primary, border, muted));
+
+            document.add(signatureTable);
+
+            Paragraph footer = new Paragraph("Document généré automatiquement à partir du dossier de location. Réservation #" + res.getIdReservation() + " · " + period, footerFont);
+            footer.setAlignment(Element.ALIGN_CENTER);
+            footer.setSpacingBefore(8f);
+            document.add(footer);
 
             document.close();
             return filePath;
@@ -255,6 +390,92 @@ public class PdfServiceImpl implements PdfService {
 
         table.addCell(left);
         table.addCell(right);
+    }
+
+    private PdfPCell metaCell(String label, String value, Font labelFont, Font valueFont, Color borderColor) {
+        PdfPCell cell = new PdfPCell();
+        cell.setBorder(Rectangle.NO_BORDER);
+        cell.setPadding(0f);
+
+        PdfPTable table = new PdfPTable(1);
+        table.setWidthPercentage(100);
+
+        PdfPCell labelCell = new PdfPCell(new Phrase(label, labelFont));
+        labelCell.setBorder(Rectangle.BOTTOM);
+        labelCell.setBorderColor(borderColor);
+        labelCell.setPadding(0f);
+        labelCell.setPaddingBottom(2f);
+        labelCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+
+        PdfPCell valueCell = new PdfPCell(new Phrase(value, valueFont));
+        valueCell.setBorder(Rectangle.NO_BORDER);
+        valueCell.setPadding(0f);
+        valueCell.setPaddingTop(3f);
+        valueCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+
+        table.addCell(labelCell);
+        table.addCell(valueCell);
+        cell.addElement(table);
+        return cell;
+    }
+
+    private PdfPCell summaryCard(String title, String value, String note, Color backgroundColor, Color borderColor, Color titleColor, Font valueFont, Font strongFont) {
+        PdfPCell cell = new PdfPCell();
+        cell.setBackgroundColor(backgroundColor);
+        cell.setBorderColor(borderColor);
+        cell.setPadding(12f);
+
+        Paragraph heading = new Paragraph(title, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, titleColor));
+        heading.setSpacingAfter(6f);
+        cell.addElement(heading);
+        cell.addElement(new Paragraph(value, strongFont));
+        cell.addElement(new Paragraph(note, valueFont));
+
+        return cell;
+    }
+
+    private PdfPCell signatureBox(String title, String line1, String line2, Color primary, Color borderColor, Color muted) {
+        PdfPCell cell = new PdfPCell();
+        cell.setBorderColor(borderColor);
+        cell.setPadding(0f);
+
+        PdfPTable table = new PdfPTable(1);
+        table.setWidthPercentage(100);
+
+        PdfPCell header = new PdfPCell(new Phrase(title.toUpperCase(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f, Font.NORMAL, new Color(15, 23, 42))));
+        header.setHorizontalAlignment(Element.ALIGN_CENTER);
+        header.setBorderColor(borderColor);
+        header.setPadding(6f);
+        header.setBackgroundColor(new Color(240, 244, 248));
+
+        PdfPCell body = new PdfPCell();
+        body.setBorderColor(borderColor);
+        body.setPadding(14f);
+        body.setMinimumHeight(82f);
+        body.setHorizontalAlignment(Element.ALIGN_CENTER);
+        body.addElement(new Paragraph(title.equalsIgnoreCase("Client") ? "SIGNÉ" : "VALIDÉ", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13f, Font.NORMAL, primary)));
+        body.addElement(new Paragraph(line1, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, Font.NORMAL, new Color(15, 23, 42))));
+        body.addElement(new Paragraph(line2, FontFactory.getFont(FontFactory.HELVETICA, 9f, Font.NORMAL, muted)));
+
+        table.addCell(header);
+        table.addCell(body);
+        cell.addElement(table);
+        return cell;
+    }
+
+    private String periodForInvoice(ReservationLocation res) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        return (res.getDateDebut() != null ? res.getDateDebut().format(formatter) : "-")
+            + " - "
+            + (res.getDateFin() != null ? res.getDateFin().format(formatter) : "-");
+    }
+
+    private String safeText(String value) {
+        if (value == null || value.isBlank()) {
+            return "-";
+        }
+
+        return value;
     }
 
     private String mapDepositStatusLabel(DepositStatus status) {

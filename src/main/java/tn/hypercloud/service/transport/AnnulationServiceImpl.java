@@ -37,7 +37,7 @@ public class AnnulationServiceImpl implements IAnnulationService {
     private final IPaiementService paiementService;
     private final RealTimeTransportController realTimeController;
 
-    private static final int MINUTES_GRATUITES = 5;           // configurable
+    private static final int MINUTES_GRATUITES = 2;           // configurable
     private static final BigDecimal POURCENTAGE_PENALITE = new BigDecimal("0.20"); // 20%
 
     @Override
