@@ -1,13 +1,20 @@
 package tn.hypercloud.entity.forum;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+import tn.hypercloud.entity.user.User;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "review")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Review {
 
     @Id
@@ -28,7 +35,20 @@ public class Review {
     @Column(length = 50)
     private String status;
 
+    // Relation avec Forum
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "forum_id")
+    @JsonIgnoreProperties({"reactions", "comments", "reviews"})
     private Forum forum;
+
+    // Relation avec User
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    @JsonIgnoreProperties({
+            "password", "enabled", "authorities",
+            "accountNonExpired", "accountNonLocked",
+            "credentialsNonExpired", "faceEmbedding",
+            "hibernateLazyInitializer", "handler"
+    })
+    private User user;
 }
