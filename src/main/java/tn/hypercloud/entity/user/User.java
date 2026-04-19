@@ -46,13 +46,13 @@ public class User implements UserDetails {
     @Column(nullable = false, length = 50)
     private Role role;
 
-    
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-  
+
 
     // Champs optionnels pour eCommerce (artisan)
     @Column(length = 20)
@@ -75,6 +75,16 @@ public class User implements UserDetails {
 
     @Column(name = "face_threshold")
     private Double faceThreshold;
+
+    @Builder.Default
+    @Column(name = "two_factor_enabled")
+    private boolean twoFactorEnabled = false;
+
+    @Column(name = "two_factor_secret", length = 255)
+    private String twoFactorSecret;
+
+    @Column(name = "two_factor_activated_at")
+    private LocalDateTime twoFactorActivatedAt;
 
 
 
@@ -160,15 +170,15 @@ public class User implements UserDetails {
         return password;
     }
 
-    @Override 
+    @Override
     public boolean isAccountNonExpired()     { return true; }
-    @Override 
+    @Override
     public boolean isAccountNonLocked()      { return true; }
-    @Override 
+    @Override
     public boolean isCredentialsNonExpired() { return true; }
 
 // ============================================
-//  Cycle de vie JPAJPA = Java Persistence API.
+//  Cycle de vie JPA = Java Persistence API.
 //C la norme Java pour mapper les classes Java vers les tables SQL.
 // “cycle JPA” = comment l’entité naît, est gérée, se détache,  
 // puis se supprime, avec des hooks automatiques comme
