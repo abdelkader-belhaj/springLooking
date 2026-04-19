@@ -24,6 +24,7 @@ public class Categorie {
     private String icone;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean statut = true;
 
     @Column(name = "date_creation", updatable = false)

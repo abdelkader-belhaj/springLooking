@@ -76,6 +76,16 @@ public class User implements UserDetails {
     @Column(name = "face_threshold")
     private Double faceThreshold;
 
+    @Builder.Default
+    @Column(name = "two_factor_enabled")
+    private boolean twoFactorEnabled = false;
+
+    @Column(name = "two_factor_secret", length = 255)
+    private String twoFactorSecret;
+
+    @Column(name = "two_factor_activated_at")
+    private LocalDateTime twoFactorActivatedAt;
+
 
 
 

@@ -38,5 +38,6 @@ public class Vol {
     private BigDecimal prix;
 
     @Column(nullable = false)
+    @Builder.Default
     private int places = 0;
 }

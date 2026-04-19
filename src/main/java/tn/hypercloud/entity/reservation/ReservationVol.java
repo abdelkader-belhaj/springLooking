@@ -34,6 +34,7 @@ public class ReservationVol {
     private Panier.TypeBillet typeBillet;
 
     @Column(name = "nb_passagers", nullable = false)
+    @Builder.Default
     private byte nbPassagers = 1;
 
     @Column(name = "prix_total", nullable = false, precision = 10, scale = 2)

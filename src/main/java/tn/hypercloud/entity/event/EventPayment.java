@@ -24,6 +24,7 @@ public class EventPayment {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false)
+    @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(name = "transaction_id", length = 255)

@@ -49,7 +49,16 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         // Routes publiques — pas besoin de token
-                        .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers(
+                        "/api/auth/login",
+                        "/api/auth/register",
+                        "/api/auth/login-face",
+                        "/api/auth/register-face",
+                        "/api/auth/forgot-password",
+                        "/api/auth/reset-password"
+                    ).permitAll()
+
+                    .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
 
                         // Routes admin uniquement
                         //Token ==> accès routes normales Mais : accès routes admin " YES "
