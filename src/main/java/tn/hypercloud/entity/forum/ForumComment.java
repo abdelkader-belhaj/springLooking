@@ -36,6 +36,13 @@ public class ForumComment {
     @Column(name = "aiReason", length = 255)
     private String aiReason;
 
+    // 🎤 Voice Message Fields
+    @Column(name = "voice_url", length = 500)
+    private String voiceUrl;
+
+    @Column(name = "voice_duration")
+    private Integer voiceDuration;
+
     // 🔗 Forum
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "forum_id")
