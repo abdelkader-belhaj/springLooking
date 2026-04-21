@@ -14,4 +14,6 @@ public class VolRequest {
     private LocalTime heureDepart;
     private BigDecimal prix;
     private int places;
+    private java.util.List<EscaleRequest> escales;
+    private Integer offreId;
 }

@@ -9,4 +9,5 @@ public class ReservationRequest {
     private Integer volRetourId;      // null = aller simple
     private Panier.TypeBillet typeBillet;
     private byte nbPassagers;
+    private String offreCode;
 }

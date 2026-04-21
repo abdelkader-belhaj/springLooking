@@ -42,4 +42,11 @@ public class Vol {
     @Column(nullable = false)
     @Builder.Default
     private int places = 0;
+
+    @OneToMany(mappedBy = "vol", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<Escale> escales;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_offre")
+    private Offre offre;
 }

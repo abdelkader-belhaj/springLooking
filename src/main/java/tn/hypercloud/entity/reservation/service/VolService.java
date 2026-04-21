@@ -2,13 +2,16 @@ package tn.hypercloud.entity.reservation.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import tn.hypercloud.entity.reservation.Offre;
 import tn.hypercloud.entity.reservation.dto.VolRequest;
 import tn.hypercloud.entity.reservation.dto.VolResponse;
+import tn.hypercloud.entity.reservation.dto.OffreResponse;
 import tn.hypercloud.entity.reservation.Vol;
 import tn.hypercloud.entity.user.User;
 import tn.hypercloud.repository.reservation.VolRepository;
 import tn.hypercloud.repository.user.UserRepository;
 
+import tn.hypercloud.entity.reservation.dto.EscaleResponse;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,6 +22,7 @@ public class VolService {
 
     private final VolRepository volRepo;
     private final UserRepository userRepo;
+    private final tn.hypercloud.repository.reservation.OffreRepository offreRepo;
 
     // ==============================
     // CREATE
@@ -38,7 +42,19 @@ public class VolService {
                 .heureDepart(req.getHeureDepart())
                 .prix(req.getPrix())
                 .places(req.getPlaces())
+                .offre(req.getOffreId() != null ? offreRepo.findById(req.getOffreId()).orElse(null) : null)
                 .build();
+
+        if (req.getEscales() != null) {
+            final Vol finalVol = vol;
+            vol.setEscales(req.getEscales().stream()
+                .map(er -> tn.hypercloud.entity.reservation.Escale.builder()
+                    .ville(er.getVille())
+                    .duree(er.getDuree())
+                    .vol(finalVol)
+                    .build())
+                .collect(java.util.stream.Collectors.toList()));
+        }
 
         return toResponse(volRepo.save(vol));
     }
@@ -63,6 +79,21 @@ public class VolService {
         vol.setHeureDepart(req.getHeureDepart());
         vol.setPrix(req.getPrix());
         vol.setPlaces(req.getPlaces());
+        vol.setOffre(req.getOffreId() != null ? offreRepo.findById(req.getOffreId()).orElse(null) : null);
+
+        if (req.getEscales() != null) {
+            vol.getEscales().clear();
+            final Vol finalVol = vol;
+            vol.getEscales().addAll(req.getEscales().stream()
+                .map(er -> tn.hypercloud.entity.reservation.Escale.builder()
+                    .ville(er.getVille())
+                    .duree(er.getDuree())
+                    .vol(finalVol)
+                    .build())
+                .collect(java.util.stream.Collectors.toList()));
+        } else {
+            vol.getEscales().clear();
+        }
 
         return toResponse(volRepo.save(vol));
     }
@@ -118,6 +149,19 @@ public class VolService {
     // ==============================
 
     public VolResponse toResponse(Vol v) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        Offre o = v.getOffre();
+        OffreResponse offreRes = null;
+
+        if (o != null && Boolean.TRUE.equals(o.getActif()) && 
+            now.isAfter(o.getDateDebut()) && now.isBefore(o.getDateFin())) {
+            offreRes = OffreResponse.builder()
+                    .id(o.getId())
+                    .code(o.getCode())
+                    .pourcentage(o.getPourcentage())
+                    .build();
+        }
+
         return VolResponse.builder()
                 .id(v.getId())
                 .societeNom(v.getUser().getUsername())
@@ -128,6 +172,15 @@ public class VolService {
                 .heureDepart(v.getHeureDepart())
                 .prix(v.getPrix())
                 .places(v.getPlaces())
+                .escales(v.getEscales() != null ? v.getEscales().stream()
+                        .map(e -> {
+                            EscaleResponse er = new EscaleResponse();
+                            er.setId(e.getId());
+                            er.setVille(e.getVille());
+                            er.setDuree(e.getDuree());
+                            return er;
+                        }).collect(java.util.stream.Collectors.toList()) : null)
+                .offre(offreRes)
                 .build();
     }
 }

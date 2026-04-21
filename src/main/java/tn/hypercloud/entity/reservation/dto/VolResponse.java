@@ -17,4 +17,6 @@ public class VolResponse {
     private LocalTime heureDepart;
     private BigDecimal prix;
     private int places;
+    private java.util.List<EscaleResponse> escales;
+    private OffreResponse offre;
 }

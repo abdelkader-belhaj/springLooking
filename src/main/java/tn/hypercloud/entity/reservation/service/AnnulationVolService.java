@@ -1,5 +1,7 @@
 package tn.hypercloud.entity.reservation.service;
 
+import com.stripe.exception.StripeException;
+import com.stripe.model.Refund;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.reservation.*;
@@ -9,6 +11,8 @@ import tn.hypercloud.repository.reservation.ReservationVolRepository;
 import tn.hypercloud.repository.reservation.VolRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -18,32 +22,23 @@ public class AnnulationVolService {
     private final VolRepository volRepo;
     private final PaiementVolRepository paiementRepo;
     private final VolService volService;
+    private final StripeService stripeService;
+    private final EmailService emailService;
 
     // ============================================================
-    //  CLIENT : DEMANDER ANNULATION + REMBOURSEMENT
-    //  Règles :
-    //  1. Réservation doit être "active"
-    //  2. Paiement doit être "paye"
-    //  3. Départ doit être dans plus de 48h
-    //  4. Restitue les places immédiatement
-    //  5. Marque paiement → "rembourse"
-    //  6. Marque réservation → "annulee"
-    //  TODO : brancher Flouci remboursement ici
+    //  CLIENT : DEMANDER ANNULATION + REMBOURSEMENT STRIPE RÉEL
     // ============================================================
     public ReservationResponse demanderAnnulation(String email, Integer reservationId) {
 
         ReservationVol res = reservationRepo.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
 
-        // Vérifier que c'est bien le client propriétaire
         if (!res.getTouriste().getEmail().equals(email))
             throw new RuntimeException("Accès refusé");
 
-        // Vérifier que la réservation est encore active
         if (res.getStatutReservation() != ReservationVol.StatutReservation.active)
             throw new RuntimeException("Cette réservation est déjà annulée");
 
-        // Vérifier que le paiement est bien "paye"
         boolean estPayee = res.getPaiement() != null &&
                 res.getPaiement().getStatut() == PaiementVol.StatutPaiement.paye;
 
@@ -56,7 +51,7 @@ public class AnnulationVolService {
             );
 
         // -------------------------------------------------------
-        //  RÈGLE 48H : vérifier date/heure du vol aller
+        //  RÈGLE 48H
         // -------------------------------------------------------
         LocalDateTime departDateTime = res.getVolAller()
                 .getDateDepart()
@@ -74,13 +69,29 @@ public class AnnulationVolService {
         }
 
         // -------------------------------------------------------
-        //  Restituer les places du vol aller
+        //  REMBOURSEMENT STRIPE RÉEL
+        // -------------------------------------------------------
+        String paymentIntentId = res.getPaiement().getReferenceTx();
+
+        if (paymentIntentId != null && paymentIntentId.startsWith("pi_")) {
+            try {
+                Refund refund = stripeService.rembourserPaiement(paymentIntentId, null);
+                if (!"succeeded".equals(refund.getStatus())) {
+                    throw new RuntimeException(
+                            "Remboursement Stripe non confirmé. Statut : " + refund.getStatus());
+                }
+            } catch (StripeException e) {
+                throw new RuntimeException("Remboursement Stripe échoué : " + e.getMessage());
+            }
+        }
+
+        // -------------------------------------------------------
+        //  Restituer les places
         // -------------------------------------------------------
         Vol volAller = res.getVolAller();
         volAller.setPlaces(volAller.getPlaces() + res.getNbPassagers());
         volRepo.save(volAller);
 
-        // Restituer les places du vol retour si aller-retour
         if (res.getVolRetour() != null) {
             Vol volRetour = res.getVolRetour();
             volRetour.setPlaces(volRetour.getPlaces() + res.getNbPassagers());
@@ -88,28 +99,23 @@ public class AnnulationVolService {
         }
 
         // -------------------------------------------------------
-        //  Mettre à jour le statut du paiement → rembourse
-        //  TODO FLOUCI :
-        //  FlouciResponse flouciRes = flouciClient.rembourser(
-        //      res.getPaiement().getReferenceTx()
-        //  );
-        //  if (!flouciRes.isSuccess()) throw new RuntimeException("Remboursement Flouci échoué");
+        //  Mettre à jour statuts
         // -------------------------------------------------------
         res.getPaiement().setStatut(PaiementVol.StatutPaiement.rembourse);
         res.getPaiement().setDatePaiement(LocalDateTime.now());
         paiementRepo.save(res.getPaiement());
 
-        // Mettre à jour le statut de la réservation → annulee
         res.setStatutReservation(ReservationVol.StatutReservation.annulee);
-        reservationRepo.save(res);
+        ReservationVol resSauvegardee = reservationRepo.save(res);
 
-        return toResponse(res);
+        // ← CORRECTION : email après sauvegarde complète
+        emailService.envoyerEmailAnnulation(resSauvegardee);
+
+        return toResponse(resSauvegardee);
     }
 
     // ============================================================
-    //  SOCIÉTÉ : CONFIRMER LE REMBOURSEMENT MANUELLEMENT
-    //  Utile avant intégration Flouci ou pour forcer le statut
-    //  PUT /api/annulations/{id}/confirmer-remboursement
+    //  SOCIÉTÉ : CONFIRMER REMBOURSEMENT MANUELLEMENT
     // ============================================================
     public ReservationResponse confirmerRemboursement(Integer reservationId) {
 
@@ -128,6 +134,21 @@ public class AnnulationVolService {
         if (res.getPaiement().getStatut() == PaiementVol.StatutPaiement.rembourse)
             throw new RuntimeException("Ce remboursement est déjà confirmé");
 
+        String paymentIntentId = res.getPaiement().getReferenceTx();
+
+        if (paymentIntentId != null && paymentIntentId.startsWith("pi_")) {
+            try {
+                Refund refund = stripeService.rembourserPaiement(paymentIntentId, null);
+                if (!"succeeded".equals(refund.getStatus())) {
+                    throw new RuntimeException(
+                            "Remboursement Stripe non confirmé. Statut : " + refund.getStatus());
+                }
+            } catch (StripeException e) {
+                System.err.println("Stripe refund échoué (forcé manuellement) : "
+                        + e.getMessage());
+            }
+        }
+
         res.getPaiement().setStatut(PaiementVol.StatutPaiement.rembourse);
         res.getPaiement().setDatePaiement(LocalDateTime.now());
         paiementRepo.save(res.getPaiement());
@@ -136,15 +157,14 @@ public class AnnulationVolService {
     }
 
     // ============================================================
-    //  SOCIÉTÉ : VOIR TOUTES LES RÉSERVATIONS ANNULÉES
-    //  GET /api/annulations
+    //  SOCIÉTÉ : TOUTES LES ANNULATIONS
     // ============================================================
-    public java.util.List<ReservationResponse> toutesLesAnnulations() {
+    public List<ReservationResponse> toutesLesAnnulations() {
         return reservationRepo
                 .findByStatutReservation(ReservationVol.StatutReservation.annulee)
                 .stream()
                 .map(this::toResponse)
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
     }
 
     // ============================================================
@@ -161,8 +181,7 @@ public class AnnulationVolService {
                 .touristeEmail(r.getTouriste().getEmail())
                 .volAller(volService.toResponse(r.getVolAller()))
                 .volRetour(r.getVolRetour() != null
-                        ? volService.toResponse(r.getVolRetour())
-                        : null)
+                        ? volService.toResponse(r.getVolRetour()) : null)
                 .typeBillet(r.getTypeBillet())
                 .nbPassagers(r.getNbPassagers())
                 .prixTotal(r.getPrixTotal())

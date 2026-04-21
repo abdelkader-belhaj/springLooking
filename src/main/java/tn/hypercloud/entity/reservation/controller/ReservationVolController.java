@@ -6,9 +6,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import tn.hypercloud.entity.reservation.dto.PaiementRequest;
 import tn.hypercloud.entity.reservation.dto.ReservationRequest;
 import tn.hypercloud.entity.reservation.dto.ReservationResponse;
+import tn.hypercloud.entity.reservation.dto.StripePaymentRequest; // ← MODIFIÉ
 import tn.hypercloud.entity.reservation.service.ReservationVolService;
 
 import java.util.List;
@@ -24,8 +24,6 @@ public class ReservationVolController {
     // ============================================================
     //  CLIENT : CRÉER UNE RÉSERVATION
     //  POST /api/reservations
-    //  Body: { "volAllerId": 1, "volRetourId": null,
-    //          "typeBillet": "aller_simple", "nbPassagers": 2 }
     // ============================================================
     @PostMapping
     @PreAuthorize("hasRole('CLIENT_TOURISTE')")
@@ -36,18 +34,19 @@ public class ReservationVolController {
     }
 
     // ============================================================
-    //  CLIENT : VOIR MES RÉSERVATIONS
+    //  CLIENT : MES RÉSERVATIONS
     //  GET /api/reservations/mes-reservations
     // ============================================================
     @GetMapping("/mes-reservations")
     @PreAuthorize("hasRole('CLIENT_TOURISTE')")
     public ResponseEntity<List<ReservationResponse>> mesReservations(
             @AuthenticationPrincipal UserDetails user) {
-        return ResponseEntity.ok(reservationService.mesReservations(user.getUsername()));
+        return ResponseEntity.ok(
+                reservationService.mesReservations(user.getUsername()));
     }
 
     // ============================================================
-    //  CLIENT : ANNULER UNE RÉSERVATION
+    //  CLIENT : ANNULER UNE RÉSERVATION (suppression simple)
     //  DELETE /api/reservations/{id}
     // ============================================================
     @DeleteMapping("/{id}")
@@ -60,20 +59,20 @@ public class ReservationVolController {
     }
 
     // ============================================================
-    //  CLIENT : PAYER UNE RÉSERVATION
+    //  CLIENT : PAYER AVEC STRIPE
     //  POST /api/reservations/payer
-    //  Body: { "reservationId": 1, "methode": "carte" }
+    //  Body: { "reservationId": 1, "methode": "carte", "paymentMethodId": "pm_xxx" }
     // ============================================================
     @PostMapping("/payer")
     @PreAuthorize("hasRole('CLIENT_TOURISTE')")
     public ResponseEntity<ReservationResponse> payer(
             @AuthenticationPrincipal UserDetails user,
-            @RequestBody PaiementRequest req) {
+            @RequestBody StripePaymentRequest req) { // ← MODIFIÉ
         return ResponseEntity.ok(reservationService.payer(user.getUsername(), req));
     }
 
     // ============================================================
-    //  SOCIÉTÉ : VOIR TOUTES LES RÉSERVATIONS
+    //  SOCIÉTÉ : TOUTES LES RÉSERVATIONS
     //  GET /api/reservations/toutes
     // ============================================================
     @GetMapping("/toutes")
@@ -83,9 +82,8 @@ public class ReservationVolController {
     }
 
     // ============================================================
-    //  SOCIÉTÉ : MODIFIER LE STATUT D'UNE RÉSERVATION
+    //  SOCIÉTÉ : MODIFIER STATUT
     //  PUT /api/reservations/{id}/statut?statut=paye
-    //  Valeurs acceptées : en_attente, paye, echec
     // ============================================================
     @PutMapping("/{id}/statut")
     @PreAuthorize("hasRole('SOCIETE')")
@@ -98,7 +96,6 @@ public class ReservationVolController {
     // ============================================================
     //  SOCIÉTÉ : SUPPRIMER UNE RÉSERVATION
     //  DELETE /api/reservations/admin/{id}
-    //  Restitue automatiquement les places si la réservation était payée
     // ============================================================
     @DeleteMapping("/admin/{id}")
     @PreAuthorize("hasRole('SOCIETE')")

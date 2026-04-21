@@ -1,16 +1,22 @@
 package tn.hypercloud.repository.reservation;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import tn.hypercloud.entity.reservation.ReservationVol;
 import java.util.List;
+import java.util.Optional;
 
 public interface ReservationVolRepository extends JpaRepository<ReservationVol, Integer> {
 
-    // Existant
     List<ReservationVol> findByTouristeId(Long touristeId);
+    long countByTouristeId(Long touristeId);
 
-    // ← NOUVEAU : pour récupérer les annulations
     List<ReservationVol> findByStatutReservation(
             ReservationVol.StatutReservation statutReservation
     );
+    Optional<ReservationVol> findByReference(String reference);
+
+    @Query("SELECT COUNT(r) FROM ReservationVol r WHERE r.touriste.id = :touristeId AND r.paiement.statut = tn.hypercloud.entity.reservation.PaiementVol.StatutPaiement.paye")
+    long countPaidByTouristeId(@Param("touristeId") Long touristeId);
 }

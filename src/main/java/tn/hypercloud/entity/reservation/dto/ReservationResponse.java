@@ -19,9 +19,15 @@ public class ReservationResponse {
     private Panier.TypeBillet typeBillet;
     private byte nbPassagers;
     private BigDecimal prixTotal;
+    private BigDecimal prixInitial; // ← NOUVEAU
     private LocalDateTime dateReservation;
     private PaiementVol.StatutPaiement statutPaiement;
 
     // ← NOUVEAU
     private ReservationVol.StatutReservation statutReservation;
+
+    // ← NOUVEAUX CHAMPS
+    private boolean bonusApplique;
+    private java.math.BigDecimal remiseBonus;
+    private OffreResponse offre;
 }

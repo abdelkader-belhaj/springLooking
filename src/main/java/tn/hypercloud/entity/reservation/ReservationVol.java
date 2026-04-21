@@ -37,6 +37,9 @@ public class ReservationVol {
 
     @Column(name = "prix_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal prixTotal;
+    
+    @Column(name = "prix_initial", precision = 10, scale = 2) // ← NOUVEAU
+    private BigDecimal prixInitial;
 
     @Column(nullable = false, unique = true, length = 10)
     private String reference;
@@ -52,6 +55,17 @@ public class ReservationVol {
     @Column(name = "statut_reservation", nullable = false)
     @Builder.Default
     private StatutReservation statutReservation = StatutReservation.active;
+
+    @Column(name = "bonus_applique")
+    @Builder.Default
+    private Boolean bonusApplique = false;
+
+    @Column(name = "remise_bonus", precision = 10, scale = 2)
+    private BigDecimal remiseBonus = BigDecimal.ZERO;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_offre")
+    private Offre offre;
 
     @PrePersist
     protected void onCreate() {
