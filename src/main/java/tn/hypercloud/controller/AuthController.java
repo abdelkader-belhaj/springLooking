@@ -12,6 +12,7 @@ import tn.hypercloud.payload.request.GoogleLoginRequest;
 import tn.hypercloud.payload.request.FaceLoginRequest;
 import tn.hypercloud.payload.request.FaceRegisterRequest;
 import tn.hypercloud.payload.request.ForgotPasswordRequest;
+import tn.hypercloud.payload.request.GoogleLoginRequest;
 import tn.hypercloud.payload.request.LoginRequest;
 import tn.hypercloud.payload.request.RegisterRequest;
 import tn.hypercloud.payload.request.ResetPasswordRequest;

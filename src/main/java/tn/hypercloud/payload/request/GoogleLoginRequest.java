@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 
 public class GoogleLoginRequest {
 
-    @NotBlank(message = "Google idToken obligatoire")
+    @NotBlank(message = "Google token obligatoire")
     private String idToken;
 
     public GoogleLoginRequest() {

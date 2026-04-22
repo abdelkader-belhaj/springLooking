@@ -3,10 +3,9 @@ package tn.hypercloud.service;
 
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.user.Role;
@@ -24,15 +23,14 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final FaceAiClientService faceAiClientService;
+    private final PasswordResetEmailService passwordResetEmailService;
     private final ObjectMapper objectMapper;
-    private final AccountApprovalEmailService accountApprovalEmailService;
 
     /**
      * GET ALL — Liste tous les users
@@ -66,7 +64,6 @@ public class UserService {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
                 .orElseThrow(() -> new RuntimeException("User non trouve avec id: " + id));
-        boolean approvalEmailNeeded = false;
 
         if (request.getUsername() != null && !request.getUsername().equals(user.getFullName())) {
             if (userRepository.existsByUsername(request.getUsername())) {
@@ -98,15 +95,8 @@ public class UserService {
             user.setProfileImage(request.getProfileImage().trim());
         }
 
-        if (request.getEnabled() != null && request.getEnabled() != user.isEnabled()) {
-            approvalEmailNeeded = !user.isEnabled() && request.getEnabled();
-            user.setEnabled(request.getEnabled());
-        }
-
         User userToSave = Objects.requireNonNull(user, "user must not be null");
-        User savedUser = userRepository.save(userToSave);
-        notifyUserIfApproved(savedUser, approvalEmailNeeded);
-        return UserResponse.fromEntity(savedUser);
+        return UserResponse.fromEntity(userRepository.save(userToSave));
     }
 
     /**
@@ -154,15 +144,19 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User non trouve avec id: " + id));
 
         String oldPassword = request.getOldPassword();
-        boolean hasOldPassword = oldPassword != null && !oldPassword.isBlank();
-        boolean googleLinkedUser = user.getGoogleSub() != null && !user.getGoogleSub().isBlank();
+        boolean oldPasswordProvided = oldPassword != null && !oldPassword.isBlank();
+        boolean oldPasswordRequired = user.isLocalPasswordSet() || oldPasswordProvided;
 
-        if (!hasOldPassword) {
-            if (!googleLinkedUser) {
+        // Exiger l'ancien mot de passe pour un changement classique.
+        // Pour un compte Google en premier setup, il peut etre absent.
+        if (oldPasswordRequired) {
+            if (!oldPasswordProvided) {
                 throw new RuntimeException("Ancien mot de passe obligatoire");
             }
-        } else if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new RuntimeException("Ancien mot de passe incorrect");
+
+            if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+                throw new RuntimeException("Ancien mot de passe incorrect");
+            }
         }
 
         // Verifier confirmation
@@ -171,6 +165,7 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setLocalPasswordSet(true);
         userRepository.save(user);
     }
 
@@ -194,10 +189,20 @@ public class UserService {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
                 .orElseThrow(() -> new RuntimeException("User non trouve avec id: " + id));
-        boolean approvalEmailNeeded = !user.isEnabled();
-        user.setEnabled(!user.isEnabled());
+
+        boolean wasEnabled = user.isEnabled();
+        user.setEnabled(!wasEnabled);
         User savedUser = userRepository.save(user);
-        notifyUserIfApproved(savedUser, approvalEmailNeeded);
+
+        // Envoyer un email seulement lors de l'acceptation admin (false -> true).
+        if (!wasEnabled && savedUser.isEnabled()) {
+            try {
+                passwordResetEmailService.sendAccountApprovedEmail(savedUser);
+            } catch (RuntimeException ex) {
+                log.warn("Compte active mais email d'activation non envoye pour userId={}", savedUser.getId(), ex);
+            }
+        }
+
         return UserResponse.fromEntity(savedUser);
     }
 
@@ -217,19 +222,6 @@ public class UserService {
             return objectMapper.writeValueAsString(embedding);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException("Impossible de sauvegarder l embedding");
-        }
-    }
-
-    private void notifyUserIfApproved(User user, boolean approvalEmailNeeded) {
-        if (!approvalEmailNeeded) {
-            return;
-        }
-
-        try {
-            accountApprovalEmailService.sendApprovalEmail(user);
-        } catch (RuntimeException ex) {
-            LOGGER.error("Impossible d envoyer l email d approbation pour l utilisateur {} ({}) : {}",
-                    user.getId(), user.getEmail(), ex.getMessage(), ex);
         }
     }
 }

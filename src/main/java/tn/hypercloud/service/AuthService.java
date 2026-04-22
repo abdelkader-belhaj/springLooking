@@ -20,10 +20,10 @@ import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.user.PasswordResetToken;
 import tn.hypercloud.entity.user.Role;
 import tn.hypercloud.entity.user.User;
-import tn.hypercloud.payload.request.GoogleLoginRequest;
 import tn.hypercloud.payload.request.FaceLoginRequest;
 import tn.hypercloud.payload.request.FaceRegisterRequest;
 import tn.hypercloud.payload.request.ForgotPasswordRequest;
+import tn.hypercloud.payload.request.GoogleLoginRequest;
 import tn.hypercloud.payload.request.LoginRequest;
 import tn.hypercloud.payload.request.RegisterRequest;
 import tn.hypercloud.payload.request.ResetPasswordRequest;
@@ -79,6 +79,7 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setLocalPasswordSet(true);
         user.setRole(request.getRole());
         user.setEnabled(!requiresAdminApproval(request.getRole()));
 
@@ -142,11 +143,16 @@ public class AuthService {
     }
 
     public AuthResponse loginWithGoogle(GoogleLoginRequest request, HttpServletRequest httpRequest) {
+        var payload = googleTokenVerifierService.verify(request.getIdToken());
 
-        GoogleTokenVerifierService.GoogleUserInfo googleUser =
-                googleTokenVerifierService.verifyIdToken(request.getIdToken());
+        String email = payload.getEmail();
+        if (email == null || email.isBlank()) {
+            throw new RuntimeException("Email Google introuvable dans le token");
+        }
 
-        User user = findOrCreateGoogleUser(googleUser);
+        String displayName = (String) payload.get("name");
+        User user = userRepository.findByEmail(email)
+                .orElseGet(() -> createGoogleUser(email, displayName));
 
         if (!canUserLogin(user)) {
             throw new DisabledException("Votre compte est en attente de validation par l administrateur");
@@ -179,6 +185,7 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setLocalPasswordSet(true);
         user.setRole(request.getRole());
         user.setEnabled(!requiresAdminApproval(request.getRole()));
         user.setFaceEmbedding(embeddingJson);
@@ -335,88 +342,38 @@ public class AuthService {
                 .or(() -> userRepository.findByUsername(login));
     }
 
-    private User findOrCreateGoogleUser(GoogleTokenVerifierService.GoogleUserInfo googleUser) {
-        String normalizedGoogleSub = normalizeGoogleSub(googleUser.sub());
-
-        User user = userRepository.findByGoogleSub(normalizedGoogleSub)
-            .orElseGet(() -> userRepository.findByEmailIgnoreCase(googleUser.email())
-                .orElseGet(() -> createGoogleUser(googleUser)));
-
-        mergeGoogleIdentity(user, googleUser);
-        return userRepository.save(user);
-    }
-
-    private User createGoogleUser(GoogleTokenVerifierService.GoogleUserInfo googleUser) {
-        String email = normalizeEmail(googleUser.email());
-        String username = buildUniqueUsername(googleUser.name(), email);
-
+    private User createGoogleUser(String email, String displayName) {
         User user = new User();
         user.setEmail(email);
-        user.setUsername(username);
+        user.setUsername(buildUniqueUsername(email, displayName));
         user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         user.setRole(Role.CLIENT_TOURISTE);
         user.setEnabled(true);
         user.setLocalPasswordSet(false);
-        user.setProfileImage(googleUser.picture());
-        user.setGoogleSub(normalizeGoogleSub(googleUser.sub()));
-        return user;
+        return userRepository.save(user);
     }
 
-    private void mergeGoogleIdentity(User user, GoogleTokenVerifierService.GoogleUserInfo googleUser) {
-        String normalizedGoogleSub = normalizeGoogleSub(googleUser.sub());
-        String currentGoogleSub = user.getGoogleSub();
-
-        if (currentGoogleSub != null && !currentGoogleSub.isBlank() && !normalizedGoogleSub.equals(currentGoogleSub)) {
-            throw new RuntimeException("Identifiant Google incompatible pour cet utilisateur");
-        }
-
-        if (currentGoogleSub == null || currentGoogleSub.isBlank()) {
-            user.setGoogleSub(normalizedGoogleSub);
-        }
-
-        String normalizedEmail = normalizeEmail(googleUser.email());
-        if (normalizedEmail != null && !normalizedEmail.equals(user.getEmail())) {
-            user.setEmail(normalizedEmail);
-        }
-
-        String googlePicture = googleUser.picture();
-        if (googlePicture != null && !googlePicture.isBlank() && !googlePicture.equals(user.getProfileImage())) {
-            user.setProfileImage(googlePicture);
-        }
-    }
-
-    private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
-    }
-
-    private String normalizeGoogleSub(String googleSub) {
-        if (googleSub == null || googleSub.isBlank()) {
-            throw new RuntimeException("Identifiant Google manquant");
-        }
-        return googleSub.trim();
-    }
-
-    private String buildUniqueUsername(String preferredName, String email) {
-        String base = preferredName != null && !preferredName.isBlank()
-                ? preferredName
-                : email.split("@")[0];
-
-        String sanitized = base
-                .trim()
+    private String buildUniqueUsername(String email, String displayName) {
+        String rawBase = (displayName != null && !displayName.isBlank()) ? displayName : email;
+        String base = rawBase
                 .toLowerCase()
-                .replaceAll("[^a-z0-9._-]", "_")
-                .replaceAll("_+", "_");
+                .replaceAll("[^a-z0-9]", "")
+                .trim();
 
-        if (sanitized.isBlank()) {
-            sanitized = "google_user";
+        if (base.isBlank()) {
+            base = "googleuser";
         }
 
-        String candidate = sanitized;
-        int suffix = 1;
+        if (base.length() > 20) {
+            base = base.substring(0, 20);
+        }
 
+        String candidate = base;
+        int attempt = 1;
         while (userRepository.existsByUsername(candidate)) {
-            candidate = sanitized + "_" + suffix;
-            suffix++;
+            String suffix = String.valueOf(attempt++);
+            int maxBaseLength = Math.max(1, 20 - suffix.length());
+            candidate = base.substring(0, Math.min(base.length(), maxBaseLength)) + suffix;
         }
 
         return candidate;
