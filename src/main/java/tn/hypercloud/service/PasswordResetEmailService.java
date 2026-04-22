@@ -54,4 +54,28 @@ public class PasswordResetEmailService {
             throw new RuntimeException("Impossible d envoyer l email de reinitialisation", ex);
         }
     }
+
+    public void sendAccountApprovedEmail(User user) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, StandardCharsets.UTF_8.name());
+
+            helper.setTo(user.getEmail());
+            helper.setSubject("Votre compte TunisiaTour a ete active");
+            helper.setText(
+                "Bonjour " + user.getFullName() + ",\n\n"
+                            + "Bonne nouvelle : votre compte a ete valide par l administrateur.\n"
+                            + "Vous pouvez maintenant vous connecter a votre espace TunisiaTour.\n\n"
+                            + "Si vous n etes pas a l origine de cette inscription, contactez le support."
+            );
+
+            if (fromAddress != null && !fromAddress.isBlank()) {
+                helper.setFrom(new InternetAddress(fromAddress, fromName));
+            }
+
+            mailSender.send(mimeMessage);
+        } catch (Exception ex) {
+            throw new RuntimeException("Impossible d envoyer l email d activation de compte", ex);
+        }
+    }
 }

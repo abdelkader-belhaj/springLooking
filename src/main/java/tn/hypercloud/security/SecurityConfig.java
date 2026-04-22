@@ -51,6 +51,7 @@ public class SecurityConfig {
                         // Routes publiques — pas besoin de token
                     .requestMatchers(
                         "/api/auth/login",
+                        "/api/auth/login-google",
                         "/api/auth/register",
                         "/api/auth/login-face",
                         "/api/auth/register-face",
