@@ -36,6 +36,10 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    @Builder.Default
+    @Column(name = "local_password_set", nullable = false)
+    private boolean localPasswordSet = true;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;
@@ -63,6 +67,9 @@ public class User implements UserDetails {
 
     @Column(name = "profile_image", length = 500)
     private String profileImage;
+
+    @Column(name = "google_sub", unique = true, length = 100)
+    private String googleSub;
 
     @Column(name = "face_embedding", columnDefinition = "LONGTEXT")
     private String faceEmbedding;

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.user.PasswordResetToken;
 import tn.hypercloud.entity.user.Role;
 import tn.hypercloud.entity.user.User;
+import tn.hypercloud.payload.request.GoogleLoginRequest;
 import tn.hypercloud.payload.request.FaceLoginRequest;
 import tn.hypercloud.payload.request.FaceRegisterRequest;
 import tn.hypercloud.payload.request.ForgotPasswordRequest;
@@ -53,6 +54,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final FaceAiClientService faceAiClientService;
     private final TwoFactorService twoFactorService;
+    private final GoogleTokenVerifierService googleTokenVerifierService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -131,6 +133,27 @@ public class AuthService {
         String token = jwtUtils.generateToken(user);
 
         // 4. Retourner token + infos user
+        AuthResponse response = new AuthResponse();
+        response.setToken(token);
+        response.setExpiresIn(jwtUtils.getExpirationMs());
+        response.setUser(UserResponse.fromEntity(user));
+        openSessionForUser(user, httpRequest);
+        return response;
+    }
+
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request, HttpServletRequest httpRequest) {
+
+        GoogleTokenVerifierService.GoogleUserInfo googleUser =
+                googleTokenVerifierService.verifyIdToken(request.getIdToken());
+
+        User user = findOrCreateGoogleUser(googleUser);
+
+        if (!canUserLogin(user)) {
+            throw new DisabledException("Votre compte est en attente de validation par l administrateur");
+        }
+
+        String token = jwtUtils.generateToken(user);
+
         AuthResponse response = new AuthResponse();
         response.setToken(token);
         response.setExpiresIn(jwtUtils.getExpirationMs());
@@ -310,6 +333,93 @@ public class AuthService {
     private Optional<User> findByLogin(String login) {
         return userRepository.findByEmail(login)
                 .or(() -> userRepository.findByUsername(login));
+    }
+
+    private User findOrCreateGoogleUser(GoogleTokenVerifierService.GoogleUserInfo googleUser) {
+        String normalizedGoogleSub = normalizeGoogleSub(googleUser.sub());
+
+        User user = userRepository.findByGoogleSub(normalizedGoogleSub)
+            .orElseGet(() -> userRepository.findByEmailIgnoreCase(googleUser.email())
+                .orElseGet(() -> createGoogleUser(googleUser)));
+
+        mergeGoogleIdentity(user, googleUser);
+        return userRepository.save(user);
+    }
+
+    private User createGoogleUser(GoogleTokenVerifierService.GoogleUserInfo googleUser) {
+        String email = normalizeEmail(googleUser.email());
+        String username = buildUniqueUsername(googleUser.name(), email);
+
+        User user = new User();
+        user.setEmail(email);
+        user.setUsername(username);
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setRole(Role.CLIENT_TOURISTE);
+        user.setEnabled(true);
+        user.setLocalPasswordSet(false);
+        user.setProfileImage(googleUser.picture());
+        user.setGoogleSub(normalizeGoogleSub(googleUser.sub()));
+        return user;
+    }
+
+    private void mergeGoogleIdentity(User user, GoogleTokenVerifierService.GoogleUserInfo googleUser) {
+        String normalizedGoogleSub = normalizeGoogleSub(googleUser.sub());
+        String currentGoogleSub = user.getGoogleSub();
+
+        if (currentGoogleSub != null && !currentGoogleSub.isBlank() && !normalizedGoogleSub.equals(currentGoogleSub)) {
+            throw new RuntimeException("Identifiant Google incompatible pour cet utilisateur");
+        }
+
+        if (currentGoogleSub == null || currentGoogleSub.isBlank()) {
+            user.setGoogleSub(normalizedGoogleSub);
+        }
+
+        String normalizedEmail = normalizeEmail(googleUser.email());
+        if (normalizedEmail != null && !normalizedEmail.equals(user.getEmail())) {
+            user.setEmail(normalizedEmail);
+        }
+
+        String googlePicture = googleUser.picture();
+        if (googlePicture != null && !googlePicture.isBlank() && !googlePicture.equals(user.getProfileImage())) {
+            user.setProfileImage(googlePicture);
+        }
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
+    }
+
+    private String normalizeGoogleSub(String googleSub) {
+        if (googleSub == null || googleSub.isBlank()) {
+            throw new RuntimeException("Identifiant Google manquant");
+        }
+        return googleSub.trim();
+    }
+
+    private String buildUniqueUsername(String preferredName, String email) {
+        String base = preferredName != null && !preferredName.isBlank()
+                ? preferredName
+                : email.split("@")[0];
+
+        String sanitized = base
+                .trim()
+                .toLowerCase()
+                .replaceAll("[^a-z0-9._-]", "_")
+                .replaceAll("_+", "_");
+
+        if (sanitized.isBlank()) {
+            sanitized = "google_user";
+        }
+
+        String candidate = sanitized;
+        int suffix = 1;
+
+        while (userRepository.existsByUsername(candidate)) {
+            candidate = sanitized + "_" + suffix;
+            suffix++;
+        }
+
+        return candidate;
     }
 
     private boolean requiresAdminApproval(Role role) {

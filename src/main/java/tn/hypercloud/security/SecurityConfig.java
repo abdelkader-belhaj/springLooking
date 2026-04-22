@@ -26,7 +26,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
@@ -51,6 +51,7 @@ public class SecurityConfig {
                         // Routes publiques — pas besoin de token
                     .requestMatchers(
                         "/api/auth/login",
+                        "/api/auth/login-google",
                         "/api/auth/register",
                         "/api/auth/login-face",
                         "/api/auth/register-face",

@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tn.hypercloud.payload.request.GoogleLoginRequest;
 import tn.hypercloud.payload.request.FaceLoginRequest;
 import tn.hypercloud.payload.request.FaceRegisterRequest;
 import tn.hypercloud.payload.request.ForgotPasswordRequest;
@@ -69,6 +70,16 @@ public class AuthController {
         AuthResponse auth = authService.login(request, httpRequest);
         return ResponseEntity.ok(
                 ApiResponse.success("Connexion reussie", auth));
+    }
+
+    @PostMapping("/login-google")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(
+            @Valid @RequestBody GoogleLoginRequest request,
+            HttpServletRequest httpRequest) {
+
+        AuthResponse auth = authService.loginWithGoogle(request, httpRequest);
+        return ResponseEntity.ok(
+                ApiResponse.success("Connexion Google reussie", auth));
     }
 
     @PostMapping("/register-face")
