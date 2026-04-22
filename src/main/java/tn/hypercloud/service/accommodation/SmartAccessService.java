@@ -16,8 +16,22 @@ public class SmartAccessService {
     private static final double MAX_ALLOWED_DISTANCE_METERS = 50.0;
 
     public GeoAccessResponse verifyLocationAndUnlock(VerifyLocationRequest request) {
+        if (request.getLogementId() == null) {
+            return GeoAccessResponse.builder()
+                    .success(false)
+                    .message("Identifiant du logement manquant.")
+                    .build();
+        }
+
         Logement logement = logementRepository.findById(request.getLogementId())
-                .orElseThrow(() -> new RuntimeException("Logement introuvable avec l'ID: " + request.getLogementId()));
+                .orElse(null);
+
+        if (logement == null) {
+            return GeoAccessResponse.builder()
+                    .success(false)
+                    .message("Logement introuvable avec l'ID: " + request.getLogementId())
+                    .build();
+        }
 
         if (logement.getLatitude() == null || logement.getLongitude() == null) {
             return GeoAccessResponse.builder()

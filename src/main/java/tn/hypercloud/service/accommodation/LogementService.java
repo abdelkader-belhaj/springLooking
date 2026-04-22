@@ -23,6 +23,7 @@ import tn.hypercloud.repository.accommodation.ReservationLogementRepository;
 import tn.hypercloud.repository.user.NotificationRepository;
 import tn.hypercloud.repository.user.UserRepository;
 
+import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Comparator;
 import java.time.LocalDate;
@@ -204,6 +205,7 @@ public class LogementService {
     }
 
     // DELETE LOGEMENT
+    @Transactional
     public void delete(Integer id) {
 
         User currentUser = getCurrentUser();
@@ -214,6 +216,12 @@ public class LogementService {
 
             throw new RuntimeException(
                     "Accès refusé : ce logement ne vous appartient pas");
+        }
+
+        // Supprimer toutes les réservations liées avant de supprimer le logement
+        List<ReservationLogement> reservations = reservationRepo.findByLogementIdLogement(id);
+        if (!reservations.isEmpty()) {
+            reservationRepo.deleteAll(reservations);
         }
 
         logRepo.delete(logement);

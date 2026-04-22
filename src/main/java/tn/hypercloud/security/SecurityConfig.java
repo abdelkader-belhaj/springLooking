@@ -55,7 +55,13 @@ public class SecurityConfig {
                         "/api/auth/login-face",
                         "/api/auth/register-face",
                         "/api/auth/forgot-password",
-                        "/api/auth/reset-password"
+                        "/api/auth/reset-password",
+                        "/api/categories",
+                        "/api/categories/**",
+                        "/api/logements",
+                        "/api/logements/public",
+                        "/api/logements/categorie/**",
+                        "/api/logements/{id}"
                     ).permitAll()
 
                     .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
