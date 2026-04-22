@@ -42,9 +42,11 @@ public class Logement {
     private BigDecimal prixNuit;
 
     @Column(nullable = false)
+    @Builder.Default
     private int capacite = 1;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean disponible = true;
 
     @Column(name = "date_creation", updatable = false)

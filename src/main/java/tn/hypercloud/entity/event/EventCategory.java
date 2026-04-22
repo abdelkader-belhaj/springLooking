@@ -5,7 +5,11 @@ import lombok.*;
 
 @Entity
 @Table(name = "category")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class EventCategory {
 
     @Id
@@ -17,4 +21,13 @@ public class EventCategory {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private CategoryType type;
+
+    public enum CategoryType {
+        EVENT,
+        ACTIVITY
+    }
 }

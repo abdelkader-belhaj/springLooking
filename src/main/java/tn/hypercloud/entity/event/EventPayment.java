@@ -24,6 +24,7 @@ public class EventPayment {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false)
+    @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(name = "transaction_id", length = 255)
@@ -38,7 +39,6 @@ public class EventPayment {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    /** 1 paiement par réservation */
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id", nullable = false, unique = true)
     private EventReservation reservation;
@@ -48,5 +48,21 @@ public class EventPayment {
         createdAt = LocalDateTime.now();
     }
 
-    public enum PaymentStatus { PENDING, SUCCESS, FAILED, REFUNDED }
+    public enum PaymentStatus {
+        // Transaction initiée, en attente de traitement bancaire
+        // (comme Flouci/Konnect qui traite la transaction)
+        PENDING,
+
+        // Paiement accepté par la banque,
+        // déclenche automatiquement la confirmation de la réservation
+        SUCCESS,
+
+        // Paiement refusé par la banque
+        // (solde insuffisant, carte expirée...)
+        FAILED,
+
+        // Remboursement effectué suite à
+        // l'annulation de l'event ou de la réservation
+        REFUNDED
+    }
 }
