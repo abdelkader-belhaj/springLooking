@@ -92,13 +92,6 @@ public class User implements UserDetails {
 
     @Column(name = "two_factor_activated_at")
     private LocalDateTime twoFactorActivatedAt;
-@Builder.Default
-@Column(name = "local_password_set")
-private boolean localPasswordSet = false;
-
-
-
-
 
     public Role getRole() {
         return role;
