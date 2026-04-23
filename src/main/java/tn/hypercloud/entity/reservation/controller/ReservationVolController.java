@@ -99,8 +99,7 @@ public class ReservationVolController {
     // ============================================================
     @DeleteMapping("/admin/{id}")
     @PreAuthorize("hasRole('SOCIETE')")
-    public ResponseEntity<Void> supprimerReservation(@PathVariable Integer id) {
-        reservationService.supprimerReservation(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<ReservationResponse> supprimerReservation(@PathVariable Integer id) {
+        return ResponseEntity.ok(reservationService.supprimerReservation(id));
     }
 }

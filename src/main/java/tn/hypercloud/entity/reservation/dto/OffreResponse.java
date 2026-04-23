@@ -10,4 +10,7 @@ public class OffreResponse {
     private Integer id;
     private String code;
     private double pourcentage;
+    private Boolean actif;
+    private java.time.LocalDateTime dateDebut;
+    private java.time.LocalDateTime dateFin;
 }

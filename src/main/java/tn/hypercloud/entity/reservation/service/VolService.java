@@ -23,6 +23,8 @@ public class VolService {
     private final VolRepository volRepo;
     private final UserRepository userRepo;
     private final tn.hypercloud.repository.reservation.OffreRepository offreRepo;
+    private final tn.hypercloud.repository.reservation.ReservationVolRepository resRepo;
+    private final EmailService emailService;
 
     // ==============================
     // CREATE
@@ -114,6 +116,27 @@ public class VolService {
         volRepo.delete(vol);
     }
 
+    public VolResponse updateRetard(Integer id, String email, int minutes) {
+        Vol vol = volRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Vol introuvable"));
+
+        if (!vol.getUser().getEmail().equals(email)) {
+            throw new RuntimeException("Accès refusé");
+        }
+
+        vol.setRetard(minutes);
+        Vol saved = volRepo.save(vol);
+
+        // Envoyer des emails aux clients impactés (seulement ceux dont la réservation est active)
+        resRepo.findByVol(saved).stream()
+            .filter(r -> r.getStatutReservation() == tn.hypercloud.entity.reservation.ReservationVol.StatutReservation.active)
+            .forEach(res -> {
+                emailService.envoyerEmailRetard(res, saved, minutes);
+            });
+
+        return toResponse(saved);
+    }
+
     // ==============================
     // GET
     // ==============================
@@ -148,6 +171,10 @@ public class VolService {
     // MAPPER
     // ==============================
 
+    public VolResponse convertToResponse(Vol v) {
+        return toResponse(v);
+    }
+
     public VolResponse toResponse(Vol v) {
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         Offre o = v.getOffre();
@@ -159,6 +186,9 @@ public class VolService {
                     .id(o.getId())
                     .code(o.getCode())
                     .pourcentage(o.getPourcentage())
+                    .actif(o.getActif())
+                    .dateDebut(o.getDateDebut())
+                    .dateFin(o.getDateFin())
                     .build();
         }
 
@@ -181,6 +211,7 @@ public class VolService {
                             return er;
                         }).collect(java.util.stream.Collectors.toList()) : null)
                 .offre(offreRes)
+                .retard(v.getRetard())
                 .build();
     }
 }

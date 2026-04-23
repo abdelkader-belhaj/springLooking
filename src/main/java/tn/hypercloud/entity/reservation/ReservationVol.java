@@ -52,7 +52,7 @@ public class ReservationVol {
 
     // ← NOUVEAU : statut de la réservation
     @Enumerated(EnumType.STRING)
-    @Column(name = "statut_reservation", nullable = false)
+    @Column(name = "statut_reservation", nullable = false, length = 20)
     @Builder.Default
     private StatutReservation statutReservation = StatutReservation.active;
 
@@ -77,6 +77,7 @@ public class ReservationVol {
 
     public enum StatutReservation {
         active,
-        annulee
+        annulee,
+        archivee
     }
 }

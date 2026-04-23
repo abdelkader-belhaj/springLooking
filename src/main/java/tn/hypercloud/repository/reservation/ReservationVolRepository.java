@@ -19,4 +19,7 @@ public interface ReservationVolRepository extends JpaRepository<ReservationVol, 
 
     @Query("SELECT COUNT(r) FROM ReservationVol r WHERE r.touriste.id = :touristeId AND r.paiement.statut = tn.hypercloud.entity.reservation.PaiementVol.StatutPaiement.paye")
     long countPaidByTouristeId(@Param("touristeId") Long touristeId);
+
+    @Query("SELECT r FROM ReservationVol r WHERE r.volAller = :vol OR r.volRetour = :vol")
+    List<ReservationVol> findByVol(@Param("vol") tn.hypercloud.entity.reservation.Vol vol);
 }

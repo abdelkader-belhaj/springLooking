@@ -16,47 +16,36 @@ public class HotelRecommendationController {
         List<HotelRecommendation> hotels = new ArrayList<>();
         
         // Mock data logic based on destination
-        if (destination.equalsIgnoreCase("Paris")) {
-            hotels.add(HotelRecommendation.builder()
-                    .nom("Hôtel Ritz Paris")
-                    .prixApprox("500€/nuit")
-                    .latitude(48.8681)
-                    .longitude(2.3289)
-                    .osmLink("https://www.openstreetmap.org/?mlat=48.8681&mlon=2.3289#map=17/48.8681/2.3289")
-                    .build());
-            hotels.add(HotelRecommendation.builder()
-                    .nom("Hôtel Le Meurice")
-                    .prixApprox("450€/nuit")
-                    .latitude(48.8651)
-                    .longitude(2.3281)
-                    .osmLink("https://www.openstreetmap.org/?mlat=48.8651&mlon=2.3281#map=17/48.8651/2.3281")
-                    .build());
-        } else if (destination.equalsIgnoreCase("Tunis")) {
-            hotels.add(HotelRecommendation.builder()
-                    .nom("The Residence Tunis")
-                    .prixApprox("300 DT/nuit")
-                    .latitude(36.9145)
-                    .longitude(10.2736)
-                    .osmLink("https://www.openstreetmap.org/?mlat=36.9145&mlon=10.2736#map=17/36.9145/10.2736")
-                    .build());
-            hotels.add(HotelRecommendation.builder()
-                    .nom("Four Seasons Resort Tunis")
-                    .prixApprox("400 DT/nuit")
-                    .latitude(36.9201)
-                    .longitude(10.2801)
-                    .osmLink("https://www.openstreetmap.org/?mlat=36.9201&mlon=10.2801#map=17/36.9201/10.2801")
-                    .build());
+        String dest = destination.trim();
+        if (dest.equalsIgnoreCase("Paris")) {
+            hotels.add(newHotel("Hôtel Ritz Paris", "550€/nuit", 48.8681, 2.3289));
+            hotels.add(newHotel("Hôtel Le Meurice", "480€/nuit", 48.8651, 2.3281));
+            hotels.add(newHotel("Shangri-La Paris", "620€/nuit", 48.8635, 2.2938));
+        } else if (dest.equalsIgnoreCase("Tunis")) {
+            hotels.add(newHotel("The Residence Tunis", "320 DT/nuit", 36.9145, 10.2736));
+            hotels.add(newHotel("Four Seasons Resort Tunis", "450 DT/nuit", 36.9201, 10.2801));
+            hotels.add(newHotel("Mövenpick Hotel du Lac", "280 DT/nuit", 36.8378, 10.2372));
+        } else if (dest.equalsIgnoreCase("Dortmund")) {
+            hotels.add(newHotel("Hôtel NH Dortmund", "115€/nuit", 51.5175, 7.4611));
+            hotels.add(newHotel("Radisson Blu Hotel Dortmund", "145€/nuit", 51.4965, 7.4589));
+            hotels.add(newHotel("Mercure Hotel Dortmund City", "95€/nuit", 51.5142, 7.4595));
         } else {
-            // Default generic mock data
-            hotels.add(HotelRecommendation.builder()
-                    .nom("Hôtel Destination " + destination)
-                    .prixApprox("100€/nuit")
-                    .latitude(0.0)
-                    .longitude(0.0)
-                    .osmLink("https://www.openstreetmap.org/")
-                    .build());
+            // Default generic mock data (3 hotels)
+            hotels.add(newHotel("Grand Hôtel " + dest, "120€/nuit", 48.8566, 2.3522));
+            hotels.add(newHotel("Hôtel de la Paix - " + dest, "85€/nuit", 48.8580, 2.3510));
+            hotels.add(newHotel("Résidence Centrale " + dest, "65€/nuit", 48.8550, 2.3535));
         }
 
         return ResponseEntity.ok(hotels);
+    }
+
+    private HotelRecommendation newHotel(String nom, String prix, double lat, double lon) {
+        return HotelRecommendation.builder()
+                .nom(nom)
+                .prixApprox(prix)
+                .latitude(lat)
+                .longitude(lon)
+                .osmLink("https://www.openstreetmap.org/?mlat=" + lat + "&mlon=" + lon + "#map=17/" + lat + "/" + lon)
+                .build();
     }
 }

@@ -58,52 +58,60 @@ public class ReservationVolService {
                 throw new RuntimeException("Places insuffisantes sur le vol retour");
         }
 
-        BigDecimal prixInitial = volAller.getPrix()
-                .multiply(BigDecimal.valueOf(req.getNbPassagers()));
-        if (volRetour != null)
-            prixInitial = prixInitial.add(volRetour.getPrix()
-                    .multiply(BigDecimal.valueOf(req.getNbPassagers())));
+        BigDecimal prixAllerInitial = volAller.getPrix().multiply(BigDecimal.valueOf(req.getNbPassagers()));
+        BigDecimal prixAllerFinal = prixAllerInitial;
+        
+        Offre offreAller = null;
+        if (req.getOffreCode() != null && !req.getOffreCode().isEmpty()) {
+            offreAller = offreRepo.findByCodeAndActifTrue(req.getOffreCode()).orElse(null);
+        } else if (volAller.getOffre() != null && Boolean.TRUE.equals(volAller.getOffre().getActif())) {
+            offreAller = volAller.getOffre();
+        }
 
-        BigDecimal prix = prixInitial;
+        if (offreAller != null) {
+            LocalDateTime now = LocalDateTime.now();
+            if (now.isAfter(offreAller.getDateDebut()) && now.isBefore(offreAller.getDateFin())) {
+                BigDecimal remiseOffre = prixAllerInitial.multiply(BigDecimal.valueOf(offreAller.getPourcentage() / 100.0));
+                prixAllerFinal = prixAllerInitial.subtract(remiseOffre);
+            } else {
+                offreAller = null;
+            }
+        }
 
-        String ref = "TUN" + UUID.randomUUID()
-                .toString().substring(0, 6).toUpperCase();
+        BigDecimal prixRetourInitial = BigDecimal.ZERO;
+        BigDecimal prixRetourFinal = BigDecimal.ZERO;
+        
+        if (volRetour != null) {
+            prixRetourInitial = volRetour.getPrix().multiply(BigDecimal.valueOf(req.getNbPassagers()));
+            prixRetourFinal = prixRetourInitial;
+            
+            Offre offreRetour = volRetour.getOffre();
+            if (offreRetour != null && Boolean.TRUE.equals(offreRetour.getActif())) {
+                LocalDateTime now = LocalDateTime.now();
+                if (now.isAfter(offreRetour.getDateDebut()) && now.isBefore(offreRetour.getDateFin())) {
+                    BigDecimal remiseOffre = prixRetourInitial.multiply(BigDecimal.valueOf(offreRetour.getPourcentage() / 100.0));
+                    prixRetourFinal = prixRetourInitial.subtract(remiseOffre);
+                }
+            }
+        }
+
+        BigDecimal prixInitial = prixAllerInitial.add(prixRetourInitial);
+        BigDecimal prix = prixAllerFinal.add(prixRetourFinal);
 
         // On ne compte que les réservations DÉJÀ PAYÉES pour le bonus
         long totalReservations = reservationRepo.countPaidByTouristeId(touriste.getId().longValue());
-        boolean applyBonus = (totalReservations > 0) && ((totalReservations + 1) % 10 == 0); 
-        // Note: Si il a 9 résas payées, la 10ème est bonus? Ou après 10? 
-        // User a dit "chaque 10 résas". Donc la 10ème, 20ème...
-        // Si countPaid == 9, alors (9+1)%10 == 0 -> La 10ème est gratuite/réduite.
+        boolean applyBonus = (totalReservations > 0) && ((totalReservations + 1) % 3 == 0); 
         
         BigDecimal remise = BigDecimal.ZERO;
-        
         if (applyBonus) {
             remise = prix.multiply(new BigDecimal("0.10"));
             prix = prix.subtract(remise);
         }
 
-        Offre offreAppliquee = null;
-        Offre volOffre = volAller.getOffre();
+        Offre offreAppliquee = offreAller; // Save outbound offer for reference
 
-        // 1. Priorité au code promo saisi par l'utilisateur
-        if (req.getOffreCode() != null && !req.getOffreCode().isEmpty()) {
-            offreAppliquee = offreRepo.findByCodeAndActifTrue(req.getOffreCode()).orElse(null);
-        } 
-        // 2. Sinon, on utilise l'offre directement liée au vol
-        else if (volOffre != null && Boolean.TRUE.equals(volOffre.getActif())) {
-            offreAppliquee = volOffre;
-        }
-
-        if (offreAppliquee != null) {
-            LocalDateTime now = LocalDateTime.now();
-            if (now.isAfter(offreAppliquee.getDateDebut()) && now.isBefore(offreAppliquee.getDateFin())) {
-                BigDecimal remiseOffre = prix.multiply(BigDecimal.valueOf(offreAppliquee.getPourcentage() / 100.0));
-                prix = prix.subtract(remiseOffre);
-            } else {
-                offreAppliquee = null; // Expired or not yet started
-            }
-        }
+        String ref = "TUN" + UUID.randomUUID()
+                .toString().substring(0, 6).toUpperCase();
 
         ReservationVol res = ReservationVol.builder()
                 .touriste(touriste)
@@ -158,7 +166,8 @@ public class ReservationVolService {
             }
         }
 
-        reservationRepo.delete(res);
+        res.setStatutReservation(ReservationVol.StatutReservation.archivee);
+        reservationRepo.save(res);
     }
 
     // ============================================================
@@ -283,8 +292,7 @@ public class ReservationVolService {
     // ============================================================
     //  SOCIÉTÉ : SUPPRIMER UNE RÉSERVATION (restitue les places)
     // ============================================================
-    public void supprimerReservation(Integer reservationId) {
-
+    public ReservationResponse supprimerReservation(Integer reservationId) {
         ReservationVol res = reservationRepo.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Réservation introuvable"));
 
@@ -303,7 +311,8 @@ public class ReservationVolService {
             }
         }
 
-        reservationRepo.delete(res);
+        res.setStatutReservation(ReservationVol.StatutReservation.archivee);
+        return toResponse(reservationRepo.save(res));
     }
 
     // ============================================================

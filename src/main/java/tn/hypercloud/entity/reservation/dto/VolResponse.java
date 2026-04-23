@@ -19,4 +19,5 @@ public class VolResponse {
     private int places;
     private java.util.List<EscaleResponse> escales;
     private OffreResponse offre;
+    private Integer retard;
 }

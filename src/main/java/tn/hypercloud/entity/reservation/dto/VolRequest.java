@@ -16,4 +16,5 @@ public class VolRequest {
     private int places;
     private java.util.List<EscaleRequest> escales;
     private Integer offreId;
+    private Integer retard;
 }

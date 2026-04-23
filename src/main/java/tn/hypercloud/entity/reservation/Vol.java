@@ -49,4 +49,8 @@ public class Vol {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_offre")
     private Offre offre;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer retard = 0;
 }

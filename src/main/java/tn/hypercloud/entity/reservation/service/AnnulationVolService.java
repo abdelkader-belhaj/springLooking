@@ -153,7 +153,10 @@ public class AnnulationVolService {
         res.getPaiement().setDatePaiement(LocalDateTime.now());
         paiementRepo.save(res.getPaiement());
 
-        return toResponse(res);
+        ReservationVol updated = reservationRepo.save(res);
+        emailService.envoyerEmailAnnulation(updated);
+
+        return toResponse(updated);
     }
 
     // ============================================================
