@@ -1,9 +1,11 @@
 package tn.hypercloud.repository.reservation;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 import tn.hypercloud.entity.reservation.Vol;
+import java.time.LocalDate;
+import java.util.List;
 
-@Repository
 public interface VolRepository extends JpaRepository<Vol, Integer> {
+    List<Vol> findByUserId(Long userId);  // remplace findBySocieteId
+    List<Vol> findByDepartAndArriveeAndDateDepart(String depart, String arrivee, LocalDate date);
 }
