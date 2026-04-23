@@ -34,7 +34,7 @@ import org.springframework.http.HttpMethod;
 
 import java.util.List;
 
-@Configuration(proxyBeanMethods = false)
+@Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
@@ -86,7 +86,9 @@ public class SecurityConfig {
                         // Routes admin uniquement
                         //Token ==> accès routes normales Mais : accès routes admin " YES "
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
+                        .requestMatchers("/ws-transport/**").permitAll()
+                        .requestMatchers("/hypercloud/uploads/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
 
 
                         // Toutes les autres routes -> token obligatoire

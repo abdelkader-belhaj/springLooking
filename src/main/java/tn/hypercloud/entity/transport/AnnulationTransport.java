@@ -1,16 +1,22 @@
 package tn.hypercloud.entity.transport;
 
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import tn.hypercloud.entity.transport.enums.AnnulePar;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.FieldDefaults;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "annulations")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class Annulation {
+@Table(name = "annulationTransport")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class AnnulationTransport {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,6 +25,7 @@ public class Annulation {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_course", nullable = false, unique = true)
+    @JsonIgnore
     private Course course;
 
     @Enumerated(EnumType.STRING)
@@ -49,4 +56,6 @@ public class Annulation {
     protected void onUpdate() {
         dateModification = LocalDateTime.now();
     }
+
+
 }
