@@ -2,16 +2,16 @@ package tn.hypercloud.service.accommodation;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
 
 import tn.hypercloud.entity.accommodation.Logement;
+import tn.hypercloud.entity.accommodation.UserPreferences;
 import tn.hypercloud.payload.response.LogementResponse;
 import tn.hypercloud.payload.response.RecommendationResponse;
 import tn.hypercloud.repository.accommodation.LogementRepository;
+import tn.hypercloud.repository.accommodation.UserPreferencesRepository;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -20,64 +20,84 @@ public class RecommendationService {
 
     private final LogementRepository logementRepository;
     private final LogementService logementService;
+    private final UserPreferencesRepository prefsRepository;
 
-    // Modèle basique pour parser la réponse JSON du serveur Python
-    public static class RecommandationApiResponse {
-        public Integer user_id;
-        public List<Integer> recommended_logement_ids;
-        public List<Double> scores;
-    }
-
-    /**
-     * Interroge l'IA Python pour recommander des logements à un utilisateur.
-     * @param userId L'ID de l'utilisateur concerné
-     * @return Liste des recommandations (Logement + Etoiles)
-     */
     public List<RecommendationResponse> getRecommandationsPourUser(Integer userId) {
-        
-        // L'URL du microservice Python que nous avons lancé
-        String pythonApiUrl = "http://127.0.0.1:8000/recommend/" + userId;
-        RestTemplate restTemplate = new RestTemplate();
-        
-        try {
-            // Fait un appel HTTP GET vers Python
-            ResponseEntity<RecommandationApiResponse> response = restTemplate.getForEntity(pythonApiUrl, RecommandationApiResponse.class);
-            
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                List<Integer> idsRecommandes = response.getBody().recommended_logement_ids;
-                List<Double> scores = response.getBody().scores;
-                List<RecommendationResponse> recommandations = new ArrayList<>();
-                
-                // Comme les IDs IA (1-100) sont fictifs et peuvent ne pas exister dans MySQL,
-                // On récupère tous les logements réels de la DB
-                List<Logement> allLogements = logementRepository.findByDisponibleTrue();
-                
-                // Assigner les superbes scores IA aux logements réels
-                int limit = Math.min(idsRecommandes.size(), allLogements.size());
-                
-                for (int i = 0; i < limit; i++) {
-                    Logement logementReel = allLogements.get(i);
-                    Double aiScore = scores.get(i);
-                    
-                    // On arrondit tout de même à 2 décimales pour un affichage propre
-                    aiScore = Math.round(aiScore * 100.0) / 100.0;
-                    
-                    LogementResponse logResponse = logementService.toResponse(logementReel);
-                    
-                    recommandations.add(RecommendationResponse.builder()
-                        .logement(logResponse)
-                        .aiScore(aiScore)
-                        .build()
-                    );
-                }
-                
-                return recommandations;
-            }
-        } catch (Exception e) {
-            System.err.println("❌ Erreur de connexion au moteur d'IA Python : " + e.getMessage());
+        List<Logement> logements = logementRepository.findByDisponibleTrue();
+        UserPreferences prefs = prefsRepository.findByUserId(userId).orElse(null);
+
+        List<ScoredLogement> scored = new ArrayList<>();
+        for (Logement l : logements) {
+            double score = calculerScore(l, prefs);
+            scored.add(new ScoredLogement(l, score));
         }
-        
-        // En cas d'erreur ou d'indisponibilité du serveur Python, on renvoie une liste vide
-        return new ArrayList<>(); 
+
+        scored.sort(Comparator.comparingDouble(ScoredLogement::score).reversed());
+
+        List<RecommendationResponse> result = new ArrayList<>();
+        for (ScoredLogement s : scored.subList(0, Math.min(6, scored.size()))) {
+            try {
+                LogementResponse resp = logementService.toResponse(s.logement());
+                result.add(RecommendationResponse.builder()
+                        .logement(resp)
+                        .aiScore(Math.round(s.score() * 100.0) / 100.0)
+                        .build());
+            } catch (Exception ignored) {}
+        }
+        return result;
     }
+
+    private double calculerScore(Logement l, UserPreferences prefs) {
+        double score = 3.0; // score de base
+
+        if (prefs == null) return score;
+
+        // Budget : favoriser logements dans le budget
+        if (prefs.getBudgetMax() != null && l.getPrixNuit() != null) {
+            double prix = l.getPrixNuit().doubleValue();
+            if (prix <= prefs.getBudgetMax()) {
+                score += 1.5;
+                // bonus si bien en dessous du budget
+                if (prix <= prefs.getBudgetMax() * 0.7) score += 0.5;
+            } else {
+                score -= 1.0;
+            }
+        }
+
+        // Ville préférée
+        if (prefs.getVillePreferee() != null && l.getVille() != null) {
+            if (l.getVille().toLowerCase().contains(prefs.getVillePreferee().toLowerCase())) {
+                score += 1.5;
+            }
+        }
+
+        // Type de séjour / catégorie
+        if (prefs.getTypeSejour() != null && l.getCategorie() != null) {
+            String cat = l.getCategorie().getNomCategorie();
+            if (cat != null && cat.toLowerCase().contains(prefs.getTypeSejour().toLowerCase())) {
+                score += 1.0;
+            }
+        }
+
+        // Capacité minimale
+        if (prefs.getCapaciteMin() != null) {
+            if (l.getCapacite() >= prefs.getCapaciteMin()) {
+                score += 0.5;
+            } else {
+                score -= 0.5;
+            }
+        }
+
+        // Ambiance dans la description
+        if (prefs.getAmbiance() != null && l.getDescription() != null) {
+            if (l.getDescription().toLowerCase().contains(prefs.getAmbiance().toLowerCase())) {
+                score += 0.5;
+            }
+        }
+
+        return Math.min(5.0, Math.max(0.0, score));
+    }
+
+    private record ScoredLogement(Logement logement, double score) {}
 }
+

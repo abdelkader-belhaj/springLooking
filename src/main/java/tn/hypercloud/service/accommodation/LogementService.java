@@ -147,12 +147,14 @@ public class LogementService {
 
     // GET LOGEMENTS BY CATEGORIE
     public List<LogementResponse> getByCategorie(Integer idCategorie) {
-        Categorie categorie = catRepo.findById(idCategorie)
-                .orElseThrow(() -> new RuntimeException("Catégorie introuvable : " + idCategorie));
+        Categorie categorie = catRepo.findById(idCategorie).orElse(null);
+        if (categorie == null) {
+            return List.of();
+        }
         User currentUser = getCurrentUserOrNull();
 
         if (!categorie.isStatut() && (currentUser == null || currentUser.getRole() == Role.CLIENT_TOURISTE)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cette catégorie est en maintenance. Coming soon.");
+            return List.of();
         }
 
         return logRepo.findByCategorieIdCategorie(idCategorie)
@@ -282,10 +284,10 @@ public class LogementService {
 
         return LogementResponse.builder()
                 .idLogement(logement.getIdLogement())
-                .idCategorie(logement.getCategorie().getIdCategorie())
-                .nomCategorie(logement.getCategorie().getNomCategorie())
-                .idHebergeur(logement.getHebergeur().getId())
-                .nomHebergeur(logement.getHebergeur().getUsername())
+                .idCategorie(logement.getCategorie() != null ? logement.getCategorie().getIdCategorie() : null)
+                .nomCategorie(logement.getCategorie() != null ? logement.getCategorie().getNomCategorie() : null)
+                .idHebergeur(logement.getHebergeur() != null ? logement.getHebergeur().getId() : null)
+                .nomHebergeur(logement.getHebergeur() != null ? logement.getHebergeur().getUsername() : null)
                 .nom(logement.getNom())
                 .description(logement.getDescription())
                 .imageUrl(logement.getImageUrl())

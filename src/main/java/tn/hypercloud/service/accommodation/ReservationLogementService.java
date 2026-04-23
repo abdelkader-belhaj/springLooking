@@ -106,28 +106,35 @@ public class ReservationLogementService {
 
         ReservationLogement savedReservation = resRepo.save(reservation);
 
-        emailService.sendReservationConfirmationEmail(
-                savedReservation.getClient().getEmail(),
-            savedReservation.getClient().getFullName(),
-                savedReservation.getLogement().getNom(),
-                savedReservation.getDateDebut(),
-                savedReservation.getDateFin(),
-                savedReservation.getPrixTotal()
-        );
+        // Email non-bloquant : la réservation ne doit pas échouer si l'email échoue
+        try {
+            emailService.sendReservationConfirmationEmail(
+                    savedReservation.getClient().getEmail(),
+                    savedReservation.getClient().getFullName(),
+                    savedReservation.getLogement().getNom(),
+                    savedReservation.getDateDebut(),
+                    savedReservation.getDateFin(),
+                    savedReservation.getPrixTotal()
+            );
+        } catch (Exception emailEx) {
+            System.err.println("[EmailService] Envoi email échoué (réservation maintenue) : " + emailEx.getMessage());
+        }
 
+        // Notification hébergeur
         Notification notif = Notification.builder()
             .user(logement.getHebergeur())
-            .message("Une réservation confirmée a été effectuée par " + currentUser.getFullName() + " pour le logement : " + logement.getNom() + ".")
+            .message("Nouvelle réservation confirmée par " + currentUser.getFullName() + " pour le logement : " + logement.getNom() + ".")
             .isRead(false)
             .build();
         notifRepo.save(notif);
 
-        Notification clientSmartLockNotif = Notification.builder()
+        // Notification client — confirmation + smart lock
+        Notification clientNotif = Notification.builder()
             .user(currentUser)
-            .message("Réservation confirmée pour " + logement.getNom() + ". Votre Clé Intelligente est une clé secrète unique: ne la partagez avec personne. Ouvrez Mes Réservations pour l'activer.")
+            .message("✅ Réservation confirmée pour \"" + logement.getNom() + "\" du " + savedReservation.getDateDebut() + " au " + savedReservation.getDateFin() + ". Consultez Mes Réservations pour accéder à votre clé intelligente.")
             .isRead(false)
             .build();
-        notifRepo.save(clientSmartLockNotif);
+        notifRepo.save(clientNotif);
 
         return toResponse(savedReservation);
     }

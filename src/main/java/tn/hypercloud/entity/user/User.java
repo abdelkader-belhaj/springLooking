@@ -77,8 +77,12 @@ public class User implements UserDetails {
     private Double faceThreshold;
 
     @Builder.Default
-    @Column(name = "two_factor_enabled")
-    private boolean twoFactorEnabled = false;
+    @Column(name = "two_factor_enabled", columnDefinition = "boolean default false")
+    private Boolean twoFactorEnabled = false;
+
+    public boolean isTwoFactorEnabled() {
+        return Boolean.TRUE.equals(this.twoFactorEnabled);
+    }
 
     @Column(name = "two_factor_secret", length = 255)
     private String twoFactorSecret;
@@ -86,8 +90,12 @@ public class User implements UserDetails {
     @Column(name = "two_factor_activated_at")
     private LocalDateTime twoFactorActivatedAt;
 @Builder.Default
-@Column(name = "local_password_set")
-private boolean localPasswordSet = false;
+@Column(name = "local_password_set", columnDefinition = "boolean default false")
+private Boolean localPasswordSet = false;
+
+public boolean isLocalPasswordSet() {
+    return Boolean.TRUE.equals(this.localPasswordSet);
+}
 
 
 
