@@ -5,7 +5,6 @@ import jakarta.validation.constraints.Size;
 
 public class ChangePasswordRequest {
 
-    @NotBlank(message = "Ancien mot de passe obligatoire")
     private String oldPassword;
 
     @NotBlank(message = "Nouveau mot de passe obligatoire")
