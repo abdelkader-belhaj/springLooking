@@ -16,7 +16,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class RecommendationService {
+public class RecommendationServicee {
 
     private final LogementRepository logementRepository;
     private final LogementService logementService;

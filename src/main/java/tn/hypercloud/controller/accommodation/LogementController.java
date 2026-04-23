@@ -9,7 +9,7 @@ import tn.hypercloud.payload.request.LogementRequest;
 import tn.hypercloud.payload.response.LogementResponse;
 import tn.hypercloud.payload.response.RecommendationResponse;
 import tn.hypercloud.service.accommodation.LogementService;
-import tn.hypercloud.service.accommodation.RecommendationService;
+import tn.hypercloud.service.accommodation.RecommendationServicee;
 
 import java.util.List;
 
@@ -19,7 +19,7 @@ import java.util.List;
 public class LogementController {
 
     private final LogementService service;
-    private final RecommendationService recommendationService;
+    private final RecommendationServicee recommendationService;
 
     // CREATE LOGEMENT
     @PostMapping

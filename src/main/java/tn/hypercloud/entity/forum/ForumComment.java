@@ -1,13 +1,20 @@
 package tn.hypercloud.entity.forum;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+import tn.hypercloud.entity.user.User;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "`comment`")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ForumComment {
 
     @Id
@@ -29,7 +36,25 @@ public class ForumComment {
     @Column(name = "aiReason", length = 255)
     private String aiReason;
 
+    // 🎤 Voice Message Fields
+    @Column(name = "voice_url", length = 500)
+    private String voiceUrl;
+
+    @Column(name = "voice_duration")
+    private Integer voiceDuration;
+
+    // 🔗 Forum
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "forum_id")
+    @JsonIgnoreProperties({"comments", "reactions", "reviews", "community", "user"})
     private Forum forum;
+
+    // 🔗 User
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    @JsonIgnoreProperties({
+            "password", "enabled", "authorities",
+            "hibernateLazyInitializer", "handler", "faceEmbedding"
+    })
+    private User user;
 }

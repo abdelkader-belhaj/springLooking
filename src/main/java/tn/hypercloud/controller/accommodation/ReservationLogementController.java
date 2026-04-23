@@ -12,7 +12,7 @@ import tn.hypercloud.service.accommodation.ReservationLogementService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/reservations")
+@RequestMapping("/api/accommodation/reservations")
 @RequiredArgsConstructor
 public class ReservationLogementController {
 

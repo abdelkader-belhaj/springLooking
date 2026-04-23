@@ -19,6 +19,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // SELECT * FROM users WHERE email = ?
     Optional<User> findByEmail(String email);
 
+    // SELECT * FROM users WHERE lower(email) = lower(?)
+    Optional<User> findByEmailIgnoreCase(String email);
+
+    // SELECT * FROM users WHERE google_sub = ?
+    Optional<User> findByGoogleSub(String googleSub);
+
     // SELECT * FROM users WHERE username = ?
     Optional<User> findByUsername(String username);
 

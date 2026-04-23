@@ -36,6 +36,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;
@@ -64,6 +65,9 @@ public class User implements UserDetails {
     @Column(name = "profile_image", length = 500)
     private String profileImage;
 
+    @Column(name = "google_sub", unique = true, length = 100)
+    private String googleSub;
+
     @Column(name = "face_embedding", columnDefinition = "LONGTEXT")
     private String faceEmbedding;
 
@@ -89,6 +93,7 @@ public class User implements UserDetails {
 
     @Column(name = "two_factor_activated_at")
     private LocalDateTime twoFactorActivatedAt;
+
 @Builder.Default
 @Column(name = "local_password_set", columnDefinition = "boolean default false")
 private Boolean localPasswordSet = false;
@@ -96,6 +101,7 @@ private Boolean localPasswordSet = false;
 public boolean isLocalPasswordSet() {
     return Boolean.TRUE.equals(this.localPasswordSet);
 }
+
 
 
 
@@ -190,7 +196,7 @@ public boolean isLocalPasswordSet() {
 // ============================================
 //  Cycle de vie JPA = Java Persistence API.
 //C la norme Java pour mapper les classes Java vers les tables SQL.
-// “cycle JPA” = comment l’entité naît, est gérée, se détache,  
+// “cycle JPA” = comment l’entité naît, est gérée, se détache,
 // puis se supprime, avec des hooks automatiques comme
 // // @PrePersist / @PreUpdate.
 // ============================================

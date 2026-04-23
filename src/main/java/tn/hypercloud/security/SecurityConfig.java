@@ -20,13 +20,21 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
+
+
 import java.util.List;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
@@ -65,6 +73,14 @@ public class SecurityConfig {
                         "/api/logements/{id}"
                     ).permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/forums/**").permitAll()
+                        .requestMatchers("/api/forums/**").permitAll()
+                        .requestMatchers("/api/communities/**").permitAll()
+                        .requestMatchers("/api/comments/**").permitAll()
+                        .requestMatchers("/api/reactions/**").permitAll()
+                        .requestMatchers("/api/reviews/**").permitAll()
+                        .requestMatchers("/api/moderation/**").permitAll()
+                        .requestMatchers("/api/ai/**").permitAll()
                     .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
 
                         // Routes admin uniquement
@@ -138,4 +154,10 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
 }

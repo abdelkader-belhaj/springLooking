@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tn.hypercloud.payload.request.GoogleLoginRequest;
 import tn.hypercloud.payload.request.FaceLoginRequest;
 import tn.hypercloud.payload.request.FaceRegisterRequest;
 import tn.hypercloud.payload.request.ForgotPasswordRequest;

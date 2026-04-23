@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.accommodation.Logement;
 import tn.hypercloud.entity.accommodation.ReservationLogement;
 import tn.hypercloud.entity.accommodation.ReservationLogement.StatutReservation;
+import tn.hypercloud.entity.reservation.service.EmailService;
 import tn.hypercloud.entity.user.Role;
 import tn.hypercloud.entity.user.User;
 
@@ -41,7 +42,8 @@ public class ReservationLogementService {
     private final LogementRepository logRepo;
     private final UserRepository userRepo;
     private final NotificationRepository notifRepo;
-    private final EmailService emailService;
+    private final ReservationEmailService
+            emailService;
 
     // CREATE RESERVATION
     public ReservationResponse create(ReservationRequest req) {

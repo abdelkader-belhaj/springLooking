@@ -14,7 +14,8 @@ import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
-public class EmailService {
+public class ReservationEmailService
+{
 
     private final JavaMailSender mailSender;
 
