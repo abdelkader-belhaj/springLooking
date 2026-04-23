@@ -87,6 +87,23 @@ public class EventActivity {
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "promo_type", nullable = false, length = 20)
+    private PromoType promoType = PromoType.NONE;
+
+    @Column(name = "promo_percent")
+    private Integer promoPercent;
+
+    @Column(name = "promo_code", length = 50)
+    private String promoCode;
+
+    @Column(name = "promo_start_date")
+    private LocalDateTime promoStartDate;
+
+    @Column(name = "promo_end_date")
+    private LocalDateTime promoEndDate;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private EventCategory category;
@@ -124,5 +141,12 @@ public class EventActivity {
         // Event annulé après publication,
         // toutes les réservations annulées + remboursement automatique
         CANCELLED
+    }
+
+    public enum PromoType {
+        NONE,
+        WEEKEND,
+        HOLIDAY,
+        CUSTOM
     }
 }

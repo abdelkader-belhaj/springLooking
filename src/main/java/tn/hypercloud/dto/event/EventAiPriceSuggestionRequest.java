@@ -24,6 +24,7 @@ public class EventAiPriceSuggestionRequest {
 
     private String categoryName;
     private String city;
+    private String address;
     private Integer capacity;
     private String startDate;
     private String endDate;

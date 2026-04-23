@@ -20,6 +20,10 @@ public interface EventReservationRepository
     List<EventReservation> findByStatus(EventReservation.ReservationStatus status); // ← garde juste celui-ci
 
     boolean existsByEventIdAndUserId(Integer eventId, Long userId);
+    boolean existsByEventIdAndUserIdAndStatus(
+            Integer eventId,
+            Long userId,
+            EventReservation.ReservationStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from EventReservation r where r.id = :id")

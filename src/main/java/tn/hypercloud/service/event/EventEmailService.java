@@ -10,6 +10,7 @@ import tn.hypercloud.repository.event.EventTicketRepository;
 import tn.hypercloud.service.PasswordResetEmailService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -41,7 +42,7 @@ public class EventEmailService {
     ) {
         // Calculer prix unitaire (pour la facture)
         BigDecimal unitPrice = numberOfTickets > 0
-                ? totalPrice.divide(BigDecimal.valueOf(numberOfTickets))
+          ? totalPrice.divide(BigDecimal.valueOf(numberOfTickets), 2, RoundingMode.HALF_UP)
                 : totalPrice;
 
         // Générer facture PDF

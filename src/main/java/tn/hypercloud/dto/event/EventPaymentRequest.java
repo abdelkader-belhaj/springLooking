@@ -10,4 +10,5 @@ public class EventPaymentRequest {
     private String currency;
     private String transactionId;
     private Integer reservationId;
+    private String promoCode;
 }

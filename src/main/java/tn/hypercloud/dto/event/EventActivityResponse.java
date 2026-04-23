@@ -27,6 +27,11 @@ public class EventActivityResponse {
     private String moderatedByEmail;
     private String moderationReason;
     private String cancellationReason;
+    private String promoType;
+    private Integer promoPercent;
+    private String promoCode;
+    private LocalDateTime promoStartDate;
+    private LocalDateTime promoEndDate;
     private Integer categoryId;
     private String categoryName;
     private Long organizerId;

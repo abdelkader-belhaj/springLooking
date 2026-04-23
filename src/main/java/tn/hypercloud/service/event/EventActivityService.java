@@ -19,7 +19,15 @@ import tn.hypercloud.repository.event.EventCategoryRepository;
 import tn.hypercloud.repository.event.EventPaymentRepository;
 import tn.hypercloud.repository.event.EventReservationRepository;
 import tn.hypercloud.repository.user.UserRepository;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +43,7 @@ public class EventActivityService {
     private final EventEmailService emailService;
     private final SmsService smsService;
         private final EventTicketService ticketService;
+        private final EventModerationAiService moderationAiService;
 
 
     // ============================================================
@@ -164,7 +173,7 @@ public class EventActivityService {
     }
 
     // ============================================================
-    // CREATE — ORGANISATEUR crée → DRAFT automatiquement
+        // CREATE — ORGANISATEUR crée → modération auto (PUBLISHED / REJECTED)
     // ============================================================
     public EventActivityResponse create(
             EventActivityRequest request, String email) {
@@ -180,7 +189,9 @@ public class EventActivityService {
                 .orElseThrow(() ->
                         new RuntimeException("Category not found"));
 
-        // 3. Construire l'event avec statut DRAFT
+        ModerationResult moderation = evaluateModeration(request);
+
+        // 3. Construire l'event avec statut auto
         EventActivity event = EventActivity.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
@@ -196,7 +207,17 @@ public class EventActivityService {
                 .imageUrl(request.getImageUrl())
                 .type(EventActivity.EventType
                         .valueOf(request.getType()))
-                .status(EventActivity.EventStatus.DRAFT)
+                .status(moderation.approved()
+                        ? EventActivity.EventStatus.PUBLISHED
+                        : EventActivity.EventStatus.REJECTED)
+                .moderatedAt(LocalDateTime.now())
+                .moderatedByEmail("qwen3-auto")
+                .moderationReason(moderation.reason())
+                .promoType(resolvePromoType(request.getPromoType()))
+                .promoPercent(normalizePromoPercent(request.getPromoPercent()))
+                .promoCode(normalizePromoCode(request.getPromoCode()))
+                .promoStartDate(request.getPromoStartDate())
+                .promoEndDate(request.getPromoEndDate())
                 .category(category)
                 .organizer(organizer)
                 .build();
@@ -222,11 +243,14 @@ public class EventActivityService {
                     "Not authorized to update this event");
         }
 
-        // Seulement les events DRAFT peuvent être modifiés
-        if (event.getStatus() != EventActivity.EventStatus.DRAFT) {
+        // Seulement DRAFT ou REJECTED peuvent être modifiés puis re-modérés
+        if (event.getStatus() != EventActivity.EventStatus.DRAFT
+                && event.getStatus() != EventActivity.EventStatus.REJECTED) {
             throw new RuntimeException(
-                    "Only DRAFT events can be updated");
+                    "Only DRAFT or REJECTED events can be updated");
         }
+
+        ModerationResult moderation = evaluateModeration(request);
 
         event.setTitle(request.getTitle());
         event.setDescription(request.getDescription());
@@ -241,6 +265,17 @@ public class EventActivityService {
         event.setImageUrl(request.getImageUrl());
         event.setType(EventActivity.EventType
                 .valueOf(request.getType()));
+        event.setPromoType(resolvePromoType(request.getPromoType()));
+        event.setPromoPercent(normalizePromoPercent(request.getPromoPercent()));
+        event.setPromoCode(normalizePromoCode(request.getPromoCode()));
+        event.setPromoStartDate(request.getPromoStartDate());
+        event.setPromoEndDate(request.getPromoEndDate());
+        event.setStatus(moderation.approved()
+                ? EventActivity.EventStatus.PUBLISHED
+                : EventActivity.EventStatus.REJECTED);
+        event.setModeratedAt(LocalDateTime.now());
+        event.setModeratedByEmail("qwen3-auto");
+        event.setModerationReason(moderation.reason());
 
         EventCategory category = categoryRepository
                 .findById(request.getCategoryId())
@@ -438,6 +473,53 @@ public class EventActivityService {
                 .build();
     }
 
+        public Map<String, Object> checkDateAvailability(LocalDate date) {
+                LocalDateTime start = date.atStartOfDay();
+                LocalDateTime end = date.plusDays(1).atStartOfDay();
+
+                long eventsCount = repository.findByStartDateBetweenOrderByStartDateAsc(start, end)
+                                .stream()
+                                .filter(e -> e.getStatus() != EventActivity.EventStatus.CANCELLED)
+                                .count();
+
+                String status;
+                String message;
+                if (eventsCount <= 2) {
+                        status = "AVAILABLE";
+                        message = "Date disponible !";
+                } else if (eventsCount <= 5) {
+                        status = "BUSY";
+                        message = eventsCount + " événements ce jour";
+                } else {
+                        status = "SATURATED";
+                        message = "Date saturée";
+                }
+
+                List<String> suggestions = new ArrayList<>();
+                if (eventsCount >= 3) {
+                        for (int i = 1; i <= 45 && suggestions.size() < 3; i++) {
+                                LocalDate candidate = date.plusDays(i);
+                                LocalDateTime candidateStart = candidate.atStartOfDay();
+                                LocalDateTime candidateEnd = candidate.plusDays(1).atStartOfDay();
+                                long candidateCount = repository.findByStartDateBetweenOrderByStartDateAsc(candidateStart, candidateEnd)
+                                                .stream()
+                                                .filter(e -> e.getStatus() != EventActivity.EventStatus.CANCELLED)
+                                                .count();
+                                if (candidateCount <= 2) {
+                                        suggestions.add(candidate.toString());
+                                }
+                        }
+                }
+
+                Map<String, Object> response = new LinkedHashMap<>();
+                response.put("date", date.toString());
+                response.put("eventsCount", eventsCount);
+                response.put("status", status);
+                response.put("message", message);
+                response.put("suggestions", suggestions);
+                return response;
+        }
+
     // ============================================================
     // METHODE PRIVEE — Conversion entité → DTO Response
     // ============================================================
@@ -466,6 +548,11 @@ public class EventActivityService {
                 .moderatedByEmail(e.getModeratedByEmail())
                 .moderationReason(e.getModerationReason())
                 .cancellationReason(e.getCancellationReason())
+                                .promoType(e.getPromoType() != null ? e.getPromoType().name() : EventActivity.PromoType.NONE.name())
+                                .promoPercent(e.getPromoPercent())
+                                .promoCode(e.getPromoCode())
+                                .promoStartDate(e.getPromoStartDate())
+                                .promoEndDate(e.getPromoEndDate())
                 .categoryId(e.getCategory() != null ?
                         e.getCategory().getId() : null)
                 .categoryName(e.getCategory() != null ?
@@ -476,4 +563,119 @@ public class EventActivityService {
                         e.getOrganizer().getFullName() : null)
                 .build();
     }
+
+        private EventActivity.PromoType resolvePromoType(String rawType) {
+                if (rawType == null || rawType.trim().isEmpty()) {
+                        return EventActivity.PromoType.NONE;
+                }
+                try {
+                        return EventActivity.PromoType.valueOf(rawType.trim().toUpperCase());
+                } catch (IllegalArgumentException ex) {
+                        return EventActivity.PromoType.NONE;
+                }
+        }
+
+        private Integer normalizePromoPercent(Integer percent) {
+                if (percent == null) return null;
+                int safe = Math.max(0, Math.min(80, percent));
+                return safe == 0 ? null : safe;
+        }
+
+        private String normalizePromoCode(String code) {
+                if (code == null) return null;
+                String normalized = code.trim();
+                return normalized.isEmpty() ? null : normalized;
+        }
+
+        private ModerationResult evaluateModeration(EventActivityRequest request) {
+                EventModerationAiService.ModerationDecision aiDecision = moderationAiService.moderate(request);
+                if (aiDecision != null) {
+                        return new ModerationResult(aiDecision.approved(), aiDecision.score(), aiDecision.reason());
+                }
+
+                log.warn("AI moderation unavailable, using local fallback scoring");
+                return evaluateModerationLocal(request);
+        }
+
+        private ModerationResult evaluateModerationLocal(EventActivityRequest request) {
+                int score = 0;
+                List<String> reasons = new ArrayList<>();
+
+                int titleLen = realLength(request.getTitle());
+                if (titleLen >= 15) {
+                        score += 25;
+                } else {
+                        reasons.add("Titre trop court (< 15 caractères)");
+                }
+
+                int descLen = realLength(request.getDescription());
+                if (descLen >= 80) {
+                        score += 25;
+                } else {
+                        reasons.add("Description trop courte (< 80 caractères)");
+                }
+
+                if (!containsFakeTokens(request.getTitle(), request.getDescription(), request.getCity())) {
+                        score += 20;
+                } else {
+                        reasons.add("Contenu factice détecté");
+                }
+
+                if (isLikelyTunisianCity(request.getCity())) {
+                        score += 15;
+                } else {
+                        reasons.add("Ville non tunisienne ou imprécise");
+                }
+
+                if (isPriceCoherent(request.getPrice())) {
+                        score += 15;
+                } else {
+                        reasons.add("Prix incohérent");
+                }
+
+                boolean approved = score >= 70;
+                String reason = approved
+                                ? "Validation auto Qwen3 (score " + score + "/100)"
+                                : "Rejet auto Qwen3 (score " + score + "/100): " + String.join("; ", reasons);
+
+                return new ModerationResult(approved, score, reason);
+        }
+
+        private int realLength(String value) {
+                if (value == null) return 0;
+                return value.replaceAll("\\s+", "")
+                                .replaceAll("[^\\p{L}\\p{N}]", "")
+                                .length();
+        }
+
+        private boolean containsFakeTokens(String... values) {
+                String joined = Arrays.stream(values)
+                                .filter(v -> v != null)
+                                .collect(Collectors.joining(" "))
+                                .toLowerCase();
+                List<String> fakeTokens = List.of("test", "aaa", "xxx", "asdf", "qwerty", "lorem", "demo");
+                return fakeTokens.stream().anyMatch(joined::contains);
+        }
+
+        private boolean isLikelyTunisianCity(String city) {
+                if (city == null) return false;
+                String normalized = city.trim().toLowerCase();
+                Set<String> allowed = Set.of(
+                                "tunis", "sfax", "sousse", "nabeul", "bizerte", "gabes", "kairouan",
+                                "gafsa", "monastir", "mahdia", "tozeur", "kebili", "medenine", "djerba",
+                                "hammamet", "tabarka", "zaghouan", "ariana", "ben arous", "manouba", "beja",
+                                "jendouba", "siliana", "kasserine", "sidi bouzid", "kef", "tataouine", "douz",
+                                "el jem", "carthage", "sidi bou said"
+                );
+                return allowed.stream().anyMatch(normalized::contains);
+        }
+
+        private boolean isPriceCoherent(java.math.BigDecimal price) {
+                if (price == null) return false;
+                return price.compareTo(java.math.BigDecimal.valueOf(5)) >= 0
+                                && price.compareTo(java.math.BigDecimal.valueOf(2000)) <= 0;
+        }
+
+        private record ModerationResult(boolean approved, int score, String reason) {
+        }
 }

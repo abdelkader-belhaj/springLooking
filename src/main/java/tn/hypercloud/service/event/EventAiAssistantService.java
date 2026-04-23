@@ -184,6 +184,7 @@ public class EventAiAssistantService {
                 String type = safe(request.getType());
                 String category = safe(request.getCategoryName());
                 String city = safe(request.getCity());
+                String address = safe(request.getAddress());
                 String capacity = request.getCapacity() != null ? String.valueOf(request.getCapacity()) : "N/A";
                 String startDate = safe(request.getStartDate());
                 String endDate = safe(request.getEndDate());
@@ -199,6 +200,7 @@ public class EventAiAssistantService {
                                 - Type : %s
                                 - Catégorie : %s
                                 - Ville : %s
+                                - Adresse : %s
                                 - Capacité : %s
                                 - Début : %s
                                 - Fin : %s
@@ -208,6 +210,8 @@ public class EventAiAssistantService {
                                 RÈGLES :
                                 - Réponds uniquement en JSON.
                                 - Le prix doit être un entier en TND.
+                                - Si le titre ou la description semblent factices, non sérieux, ou sans sens (ex: test, aaa, @#$, chiffres aléatoires, texte sans signification), retourne price = null et explain = 'Contenu insuffisant'.
+                                - Sinon retourne un prix logique en TND.
                                 - Utilise un prix accessible si l'événement est simple, standard s'il a un bon positionnement, premium si l'expérience est forte.
                                 - Si c'est une activité mer / bateau / excursion, le prix doit refléter une prestation réelle, repas ou animation inclus si le texte le suggère.
                                 - Privilégie un prix psychologique rond ou proche d'un multiple de 5.
@@ -216,9 +220,9 @@ public class EventAiAssistantService {
                                 {
                                     "price": 110,
                                     "label": "Standard",
-                                    "rationale": "Explication courte et précise en français"
+                                    "explain": "Explication courte et précise en français"
                                 }
-                                """.formatted(today, title, description, type, category, city, capacity, startDate, endDate);
+                                """.formatted(today, title, description, type, category, city, address, capacity, startDate, endDate);
         }
 
     private String callGroqAPI(String prompt) throws Exception {
@@ -316,11 +320,9 @@ public class EventAiAssistantService {
             JsonNode aiJson = objectMapper.readTree(cleaned);
             Integer price = aiJson.hasNonNull("price") ? aiJson.path("price").asInt() : null;
             String label = aiJson.path("label").asText("Standard");
-            String rationale = aiJson.path("rationale").asText("Estimation basée sur les informations fournies.");
-
-            if (price == null) {
-                return null;
-            }
+                String rationale = aiJson.hasNonNull("rationale")
+                    ? aiJson.path("rationale").asText()
+                    : aiJson.path("explain").asText("Estimation basée sur les informations fournies.");
 
             return EventAiPriceSuggestionResponse.builder()
                     .price(price)
@@ -334,7 +336,20 @@ public class EventAiAssistantService {
     }
 
     private EventAiPriceSuggestionResponse normalizePriceResponse(EventAiPriceSuggestionResponse response, boolean aiUsed) {
-        int price = response.getPrice() != null ? response.getPrice() : 0;
+        if (response.getPrice() == null) {
+            String rationale = response.getRationale();
+            if (rationale == null || rationale.trim().isEmpty()) {
+                rationale = "Contenu insuffisant";
+            }
+            return EventAiPriceSuggestionResponse.builder()
+                    .price(null)
+                    .label(response.getLabel() == null || response.getLabel().trim().isEmpty() ? "Insuffisant" : response.getLabel())
+                    .rationale(rationale)
+                    .aiUsed(aiUsed)
+                    .build();
+        }
+
+        int price = response.getPrice();
         price = Math.max(0, Math.min(250, price));
         if (price % 5 != 0) {
             price = Math.round(price / 5.0f) * 5;
@@ -360,7 +375,7 @@ public class EventAiAssistantService {
 
     private EventAiPriceSuggestionResponse fallbackLocalPrice(EventAiPriceSuggestionRequest request, boolean aiUsed, String reason) {
         String text = normalizePriceText(
-                safe(request.getTitle()) + " " + safe(request.getDescription()) + " " + safe(request.getCategoryName()) + " " + safe(request.getCity())
+            safe(request.getTitle()) + " " + safe(request.getDescription()) + " " + safe(request.getCategoryName()) + " " + safe(request.getCity()) + " " + safe(request.getAddress())
         );
         int price = request.getType() != null && request.getType().equalsIgnoreCase("ACTIVITY") ? 35 : 55;
 

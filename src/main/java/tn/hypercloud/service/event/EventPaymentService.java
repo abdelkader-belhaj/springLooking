@@ -1,20 +1,37 @@
 package tn.hypercloud.service.event;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.dto.event.EventPaymentRequest;
 import tn.hypercloud.dto.event.EventPaymentResponse;
+import tn.hypercloud.dto.event.StripeCheckoutSessionRequest;
+import tn.hypercloud.dto.event.StripeCheckoutSessionResponse;
+import tn.hypercloud.dto.event.StripeConfirmRequest;
 import tn.hypercloud.entity.event.EventPayment;
 import tn.hypercloud.entity.event.EventReservation;
 import tn.hypercloud.repository.event.EventPaymentRepository;
 import tn.hypercloud.repository.event.EventActivityRepository;
 import tn.hypercloud.repository.event.EventReservationRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+import tn.hypercloud.entity.event.EventActivity;
 import java.time.LocalDateTime;
+import java.math.RoundingMode;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import tn.hypercloud.entity.user.User;
 import java.time.format.DateTimeFormatter;
 
@@ -24,14 +41,29 @@ import java.time.format.DateTimeFormatter;
 @Slf4j  // ← Ajoute @Slf4j ici
 public class EventPaymentService {
 
+        private static final String STRIPE_CHECKOUT_API = "https://api.stripe.com/v1/checkout/sessions";
+        private static final String STRIPE_SESSION_API = "https://api.stripe.com/v1/checkout/sessions/";
+
     private final EventPaymentRepository repository;
     private final EventReservationRepository reservationRepository;
     private final EventActivityRepository eventRepository;
     private final EventEmailService emailService;
         private final EventTicketService ticketService;
 
+        private final RestTemplate restTemplate = new RestTemplate();
+        private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Value("${app.payment.mock:false}")
     private boolean mockPayment;
+
+        @Value("${app.payment.stripe.secret-key:}")
+        private String stripeSecretKey;
+
+        @Value("${app.payment.stripe.currency:eur}")
+        private String stripeCurrency;
+
+        @Value("${app.frontend.base-url:http://localhost:4200}")
+        private String frontendBaseUrl;
     @Transactional(readOnly = true)
     public List<EventPaymentResponse> getAll() {
         return repository.findAll()
@@ -91,6 +123,81 @@ public class EventPaymentService {
 
         return toResponse(repository.save(payment));
     }
+
+        public StripeCheckoutSessionResponse createStripeCheckoutSession(
+                        StripeCheckoutSessionRequest request,
+                        String email) {
+
+                EventReservation reservation = reservationRepository
+                                .findById(request.getReservationId())
+                                .orElseThrow(() -> new RuntimeException("Reservation not found : " + request.getReservationId()));
+
+                User caller = reservation.getUser();
+                if (caller == null || !Objects.equals(caller.getEmail(), email)) {
+                        throw new RuntimeException("Not authorized to pay for this reservation");
+                }
+
+                BigDecimal payableAmount = resolveStripeAmount(reservation, request.getPromoCode());
+                EventPayment payment = repository.findByReservationId(reservation.getId())
+                                .orElseGet(() -> EventPayment.builder()
+                                                .reservation(reservation)
+                                                .paymentStatus(EventPayment.PaymentStatus.PENDING)
+                                                .build());
+
+                if (payment.getPaymentStatus() == EventPayment.PaymentStatus.SUCCESS) {
+                        throw new RuntimeException("Reservation already paid");
+                }
+
+                StripeSessionPayload session = createStripeSession(reservation, payableAmount);
+
+                payment.setAmount(payableAmount);
+                payment.setPaymentMethod("STRIPE");
+                payment.setPaymentStatus(EventPayment.PaymentStatus.PENDING);
+                payment.setTransactionId(session.sessionId());
+                payment.setCurrency(normalizeCurrency(stripeCurrency));
+                repository.save(payment);
+
+                return StripeCheckoutSessionResponse.builder()
+                                .sessionId(session.sessionId())
+                                .checkoutUrl(session.checkoutUrl())
+                                .reservationId(reservation.getId())
+                                .paymentId(payment.getId())
+                                .build();
+        }
+
+        public EventPaymentResponse confirmStripeCheckoutSession(
+                        StripeConfirmRequest request,
+                        String email) {
+
+                EventReservation reservation = reservationRepository
+                                .findById(request.getReservationId())
+                                .orElseThrow(() -> new RuntimeException("Reservation not found : " + request.getReservationId()));
+
+                User caller = reservation.getUser();
+                if (caller == null || !Objects.equals(caller.getEmail(), email)) {
+                        throw new RuntimeException("Not authorized to confirm this payment");
+                }
+
+                EventPayment payment = repository.findByReservationId(reservation.getId())
+                                .orElseThrow(() -> new RuntimeException("Payment not found for reservation : " + reservation.getId()));
+
+                if (request.getSessionId() == null || request.getSessionId().isBlank()) {
+                        throw new RuntimeException("Stripe sessionId is required");
+                }
+
+                if (payment.getTransactionId() == null || !payment.getTransactionId().equals(request.getSessionId().trim())) {
+                        throw new RuntimeException("Stripe session mismatch");
+                }
+
+                StripeSessionStatus session = fetchStripeSession(request.getSessionId().trim());
+                if (!"paid".equalsIgnoreCase(session.paymentStatus())) {
+                        payment.setPaymentStatus(EventPayment.PaymentStatus.FAILED);
+                        repository.save(payment);
+                        throw new RuntimeException("Stripe payment is not confirmed yet");
+                }
+
+                return success(payment.getId());
+        }
 
     public EventPaymentResponse success(Integer id) {
         EventPayment payment = repository.findById(id)
@@ -238,4 +345,121 @@ public class EventPaymentService {
                         p.getReservation().getUser().getFullName() : null)
                 .build();
     }
+
+        private StripeSessionPayload createStripeSession(EventReservation reservation, BigDecimal payableAmount) {
+                if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
+                        throw new RuntimeException("Stripe is not configured");
+                }
+
+                String successUrl = frontendBaseUrl.replaceAll("/$", "")
+                                + "/payment/" + reservation.getId()
+                                + "?stripeSessionId={CHECKOUT_SESSION_ID}";
+                String cancelUrl = frontendBaseUrl.replaceAll("/$", "")
+                                + "/payment/" + reservation.getId();
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBasicAuth(stripeSecretKey, "");
+                headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+                MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+                body.add("mode", "payment");
+                body.add("success_url", successUrl);
+                body.add("cancel_url", cancelUrl);
+                body.add("client_reference_id", String.valueOf(reservation.getId()));
+                body.add("payment_method_types[]", "card");
+                body.add("metadata[reservationId]", String.valueOf(reservation.getId()));
+                body.add("metadata[eventId]", reservation.getEvent() != null && reservation.getEvent().getId() != null
+                                ? String.valueOf(reservation.getEvent().getId()) : "");
+                body.add("line_items[0][quantity]", "1");
+                body.add("line_items[0][price_data][currency]", normalizeCurrency(stripeCurrency));
+                body.add("line_items[0][price_data][unit_amount]", payableAmount.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).toPlainString());
+                body.add("line_items[0][price_data][product_data][name]", reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Event ticket");
+                body.add("line_items[0][price_data][product_data][description]", buildStripeDescription(reservation));
+
+                ResponseEntity<String> response = restTemplate.postForEntity(
+                                STRIPE_CHECKOUT_API,
+                                new HttpEntity<>(body, headers),
+                                String.class);
+
+                if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                        throw new RuntimeException("Stripe checkout session creation failed");
+                }
+
+                try {
+                        JsonNode root = objectMapper.readTree(response.getBody());
+                        String sessionId = root.path("id").asText("");
+                        String checkoutUrl = root.path("url").asText("");
+                        if (sessionId.isBlank() || checkoutUrl.isBlank()) {
+                                throw new RuntimeException("Stripe response missing url");
+                        }
+                        return new StripeSessionPayload(sessionId, checkoutUrl);
+                } catch (Exception ex) {
+                        throw new RuntimeException("Stripe session parsing failed: " + ex.getMessage(), ex);
+                }
+        }
+
+        private StripeSessionStatus fetchStripeSession(String sessionId) {
+                if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
+                        throw new RuntimeException("Stripe is not configured");
+                }
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBasicAuth(stripeSecretKey, "");
+                ResponseEntity<String> response = restTemplate.exchange(
+                                STRIPE_SESSION_API + sessionId,
+                                org.springframework.http.HttpMethod.GET,
+                                new HttpEntity<>(headers),
+                                String.class);
+
+                try {
+                        JsonNode root = objectMapper.readTree(response.getBody() == null ? "{}" : response.getBody());
+                        String paymentStatus = root.path("payment_status").asText("");
+                        return new StripeSessionStatus(paymentStatus);
+                } catch (Exception ex) {
+                        throw new RuntimeException("Stripe session verification failed: " + ex.getMessage(), ex);
+                }
+        }
+
+        private BigDecimal resolveStripeAmount(EventReservation reservation, String promoCode) {
+                BigDecimal baseAmount = reservation.getTotalPrice();
+                if (promoCode == null || promoCode.isBlank()) {
+                        return baseAmount;
+                }
+
+                EventActivity event = reservation.getEvent();
+                if (event == null) {
+                        return baseAmount;
+                }
+
+                String expected = event.getPromoCode() == null ? "" : event.getPromoCode().trim().toLowerCase();
+                String provided = promoCode.trim().toLowerCase();
+                if (expected.isBlank() || !expected.equals(provided)) {
+                        throw new RuntimeException("Code promo invalide ou expiré.");
+                }
+
+                Integer percent = event.getPromoPercent();
+                if (percent == null || percent <= 0) {
+                        throw new RuntimeException("Code promo invalide ou expiré.");
+                }
+
+                BigDecimal discount = baseAmount.multiply(BigDecimal.valueOf(percent)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                return baseAmount.subtract(discount).setScale(2, RoundingMode.HALF_UP);
+        }
+
+        private String buildStripeDescription(EventReservation reservation) {
+                String title = reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Event";
+                int tickets = reservation.getNumberOfTickets();
+                String client = reservation.getUser() != null ? reservation.getUser().getFullName() : "Client";
+                return title + " - " + client + " - " + tickets + " billet(s)";
+        }
+
+        private String normalizeCurrency(String value) {
+                if (value == null || value.isBlank()) {
+                        return "eur";
+                }
+                return value.trim().toLowerCase();
+        }
+
+        private record StripeSessionPayload(String sessionId, String checkoutUrl) {}
+        private record StripeSessionStatus(String paymentStatus) {}
 }

@@ -6,15 +6,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import tn.hypercloud.dto.event.EventActivityRequest;
 import tn.hypercloud.dto.event.EventActivityResponse;
 import tn.hypercloud.dto.event.EventCancelRequest;
 import tn.hypercloud.dto.event.EventRejectRequest;
+import tn.hypercloud.dto.event.EventReviewRequest;
+import tn.hypercloud.dto.event.EventReviewResponse;
 import tn.hypercloud.dto.event.EventStatsResponse;
 import tn.hypercloud.service.event.EventActivityService;
+import tn.hypercloud.service.event.EventReviewService;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/events")
@@ -23,6 +29,7 @@ import java.util.List;
 public class EventActivityController {
 
     private final EventActivityService service;
+    private final EventReviewService reviewService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('CLIENT_TOURISTE','ORGANISATEUR','ADMIN')")
@@ -52,6 +59,22 @@ public class EventActivityController {
         return ResponseEntity.ok(service.getPublishedById(id));
     }
 
+    @GetMapping("/{id}/reviews")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<List<EventReviewResponse>> getReviews(
+            @PathVariable Integer id) {
+        return ResponseEntity.ok(reviewService.getByEvent(id));
+    }
+
+    @PostMapping("/{id}/reviews")
+    @PreAuthorize("hasRole('CLIENT_TOURISTE')")
+    public ResponseEntity<EventReviewResponse> submitReview(
+            @PathVariable Integer id,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody EventReviewRequest request) {
+        return ResponseEntity.ok(reviewService.submit(id, request, userDetails.getUsername()));
+    }
+
     @GetMapping("/mes-events")
     @PreAuthorize("hasRole('ORGANISATEUR')")
     public ResponseEntity<List<EventActivityResponse>> getMesEvents(
@@ -79,6 +102,13 @@ public class EventActivityController {
     public ResponseEntity<List<EventActivityResponse>> getByCity(
             @PathVariable String city) {
         return ResponseEntity.ok(service.getPublishedByCity(city));
+    }
+
+    @GetMapping("/check-date")
+    @PreAuthorize("hasAnyRole('ORGANISATEUR','ADMIN')")
+    public ResponseEntity<Map<String, Object>> checkDate(
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(service.checkDateAvailability(date));
     }
 
     @GetMapping("/category/{categoryId}")

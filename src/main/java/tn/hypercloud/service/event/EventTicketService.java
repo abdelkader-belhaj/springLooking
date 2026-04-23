@@ -27,6 +27,7 @@ public class EventTicketService {
     private final EventTicketRepository ticketRepository;
     private final EventReservationRepository reservationRepository;
     private final UserRepository userRepository;
+    private final EventScanAiNarrationService scanAiNarrationService;
 
     @Transactional
     public void ensureTicketsGenerated(EventReservation reservation) {
@@ -130,20 +131,46 @@ public class EventTicketService {
         }
 
         if (ticket.isUsed()) {
-            return Map.of("valid", false, "message", "Ticket deja utilise");
+            String smartMessage = scanAiNarrationService.buildScanMessage(
+                new EventScanAiNarrationService.ScanNarrationContext(
+                    false,
+                    true,
+                    reservation.getUser() != null ? reservation.getUser().getFullName() : "Client",
+                    reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Événement",
+                    ticket.getTicketCode(),
+                    ticket.getUsedBy(),
+                    LocalDateTime.now(),
+                    ticket.getUsedAt()
+                )
+            );
+            return Map.of("valid", false, "message", smartMessage);
         }
 
+        LocalDateTime now = LocalDateTime.now();
         ticket.setUsed(true);
-        ticket.setUsedAt(LocalDateTime.now());
+        ticket.setUsedAt(now);
         ticket.setUsedBy(scannerEmail);
         ticket.setStatus(EventTicket.TicketStatus.USED);
         ticketRepository.save(ticket);
 
         syncReservationQrState(reservation.getId());
 
+        String smartMessage = scanAiNarrationService.buildScanMessage(
+            new EventScanAiNarrationService.ScanNarrationContext(
+                true,
+                false,
+                reservation.getUser() != null ? reservation.getUser().getFullName() : "Client",
+                reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Événement",
+                ticket.getTicketCode(),
+                scannerEmail,
+                now,
+                now
+            )
+        );
+
         return Map.of(
                 "valid", true,
-                "message", "Ticket valide",
+            "message", smartMessage,
                 "ticketCode", ticket.getTicketCode(),
                 "ticketNumber", ticket.getTicketNumber(),
                 "reservationId", reservation.getId()

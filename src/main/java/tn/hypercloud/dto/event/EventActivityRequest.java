@@ -49,4 +49,10 @@ public class EventActivityRequest {
 
     @NotNull(message = "La catégorie est obligatoire")
     private Integer categoryId;
+
+    private String promoType;
+    private Integer promoPercent;
+    private String promoCode;
+    private LocalDateTime promoStartDate;
+    private LocalDateTime promoEndDate;
 }

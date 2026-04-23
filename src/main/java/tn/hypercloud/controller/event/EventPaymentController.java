@@ -8,6 +8,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import tn.hypercloud.dto.event.EventPaymentRequest;
 import tn.hypercloud.dto.event.EventPaymentResponse;
+import tn.hypercloud.dto.event.StripeCheckoutSessionRequest;
+import tn.hypercloud.dto.event.StripeCheckoutSessionResponse;
+import tn.hypercloud.dto.event.StripeConfirmRequest;
 import tn.hypercloud.service.event.EventPaymentService;
 import java.util.List;
 
@@ -46,6 +49,22 @@ public class EventPaymentController {
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody EventPaymentRequest request) {
         return ResponseEntity.ok(service.create(request));
+    }
+
+    @PostMapping("/stripe/session")
+    @PreAuthorize("hasRole('CLIENT_TOURISTE')")
+    public ResponseEntity<StripeCheckoutSessionResponse> createStripeSession(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody StripeCheckoutSessionRequest request) {
+        return ResponseEntity.ok(service.createStripeCheckoutSession(request, userDetails.getUsername()));
+    }
+
+    @PostMapping("/stripe/confirm")
+    @PreAuthorize("hasRole('CLIENT_TOURISTE')")
+    public ResponseEntity<EventPaymentResponse> confirmStripeSession(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody StripeConfirmRequest request) {
+        return ResponseEntity.ok(service.confirmStripeCheckoutSession(request, userDetails.getUsername()));
     }
 
     @PutMapping("/{id}/success")
