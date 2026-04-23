@@ -1,5 +1,6 @@
 package tn.hypercloud.entity.forum;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -9,7 +10,12 @@ import java.util.List;
 
 @Entity
 @Table(name = "community")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Community {
 
     @Id
@@ -43,7 +49,15 @@ public class Community {
     @Column(name = "moderationLevel", length = 50)
     private String moderationLevel;
 
-    @OneToMany(mappedBy = "community")
+    // 🔗 Forums liés
+    @OneToMany(mappedBy = "community", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnoreProperties({"community"})
     private List<Forum> forums = new ArrayList<>();
+
+    // 🔄 Auto date
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }
