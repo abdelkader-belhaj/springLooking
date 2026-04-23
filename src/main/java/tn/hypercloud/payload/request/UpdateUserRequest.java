@@ -13,14 +13,14 @@ public class UpdateUserRequest {
     private String email;
 
     private Role role;
-    private boolean enabled;
+    private Boolean enabled;
     private String phone;
     private String bio;
     private String profileImage;
 
     public UpdateUserRequest() {}
 
-    public UpdateUserRequest(String username, String email, Role role, boolean enabled) {
+    public UpdateUserRequest(String username, String email, Role role, Boolean enabled) {
         this.username = username;
         this.email = email;
         this.role = role;
@@ -51,11 +51,11 @@ public class UpdateUserRequest {
         this.role = role;
     }
 
-    public boolean getEnabled() {
+    public Boolean getEnabled() {
         return enabled;
     }
 
-    public void setEnabled(boolean enabled) {
+    public void setEnabled(Boolean enabled) {
         this.enabled = enabled;
     }
 

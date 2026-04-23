@@ -3,6 +3,7 @@ package tn.hypercloud.service;
 
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,11 +23,13 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final FaceAiClientService faceAiClientService;
+    private final PasswordResetEmailService passwordResetEmailService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -140,9 +143,20 @@ public class UserService {
         User user = userRepository.findById(safeId)
                 .orElseThrow(() -> new RuntimeException("User non trouve avec id: " + id));
 
-        // Verifier ancien mot de passe
-        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new RuntimeException("Ancien mot de passe incorrect");
+        String oldPassword = request.getOldPassword();
+        boolean oldPasswordProvided = oldPassword != null && !oldPassword.isBlank();
+        boolean oldPasswordRequired = user.isLocalPasswordSet() || oldPasswordProvided;
+
+        // Exiger l'ancien mot de passe pour un changement classique.
+        // Pour un compte Google en premier setup, il peut etre absent.
+        if (oldPasswordRequired) {
+            if (!oldPasswordProvided) {
+                throw new RuntimeException("Ancien mot de passe obligatoire");
+            }
+
+            if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+                throw new RuntimeException("Ancien mot de passe incorrect");
+            }
         }
 
         // Verifier confirmation
@@ -151,6 +165,7 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setLocalPasswordSet(true);
         userRepository.save(user);
     }
 
@@ -174,8 +189,21 @@ public class UserService {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
                 .orElseThrow(() -> new RuntimeException("User non trouve avec id: " + id));
-        user.setEnabled(!user.isEnabled());
-        return UserResponse.fromEntity(userRepository.save(user));
+
+        boolean wasEnabled = user.isEnabled();
+        user.setEnabled(!wasEnabled);
+        User savedUser = userRepository.save(user);
+
+        // Envoyer un email seulement lors de l'acceptation admin (false -> true).
+        if (!wasEnabled && savedUser.isEnabled()) {
+            try {
+                passwordResetEmailService.sendAccountApprovedEmail(savedUser);
+            } catch (RuntimeException ex) {
+                log.warn("Compte active mais email d'activation non envoye pour userId={}", savedUser.getId(), ex);
+            }
+        }
+
+        return UserResponse.fromEntity(savedUser);
     }
 
     /**
