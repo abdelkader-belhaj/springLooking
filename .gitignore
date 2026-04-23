@@ -35,3 +35,6 @@ build/
 ### Python virtualenv ###
 .venv/
 ai-face-service/.venv/
+
+/uploads
+*oft*
