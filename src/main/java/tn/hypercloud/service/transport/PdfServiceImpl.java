@@ -5,6 +5,7 @@ import com.lowagie.text.pdf.*;
 import org.springframework.stereotype.Service;
 import tn.hypercloud.entity.transport.ReservationLocation;
 import tn.hypercloud.entity.transport.enums.DepositStatus;
+import tn.hypercloud.entity.transport.enums.ReservationStatus;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
@@ -255,7 +256,7 @@ public class PdfServiceImpl implements PdfService {
 
             String badgeLabel = cancellationWithRefund
                 ? "REMBOURSEMENT"
-                : (res.getDepositStatus() == DepositStatus.RELEASED ? "ACQUITTÉE" : "EN ATTENTE");
+                : resolveClosingBadgeLabel(res.getDepositStatus(), res.getStatut());
             PdfPCell badge = new PdfPCell(new Phrase(badgeLabel, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, Font.NORMAL, Color.WHITE)));
             badge.setHorizontalAlignment(Element.ALIGN_CENTER);
             badge.setPadding(8f);
@@ -308,10 +309,54 @@ public class PdfServiceImpl implements PdfService {
             BigDecimal advance = res.getAdvanceAmount() != null ? res.getAdvanceAmount() : BigDecimal.ZERO;
             BigDecimal finalPayment = total.subtract(advance).max(BigDecimal.ZERO);
             BigDecimal deposit = res.getDepositAmount() != null ? res.getDepositAmount() : BigDecimal.ZERO;
+            BigDecimal damageAmount = safeMoney(res.getMontantDommages());
+            BigDecimal retainedAmount = safeMoney(res.getMontantCautionRetenu());
+            BigDecimal restoredAmount = safeMoney(res.getMontantCautionRestitue());
+            String damageReason = safeDamageReason(res.getDescriptionDommages());
             BigDecimal refundedAdvance = BigDecimal.ZERO;
             BigDecimal refundedDeposit = BigDecimal.ZERO;
             BigDecimal lostAdvance = BigDecimal.ZERO;
             String refundNote = "Aucun remboursement appliqué.";
+
+            if (!cancellationWithRefund && res.getStatut() == ReservationStatus.COMPLETED) {
+                if (retainedAmount.compareTo(BigDecimal.ZERO) <= 0 && restoredAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                    if (res.getDepositStatus() == DepositStatus.RELEASED) {
+                        restoredAmount = safeMoney(deposit);
+                    } else if (res.getDepositStatus() == DepositStatus.FORFEITED) {
+                        retainedAmount = safeMoney(deposit);
+                    }
+                }
+
+                if (retainedAmount.compareTo(BigDecimal.ZERO) < 0) {
+                    retainedAmount = BigDecimal.ZERO;
+                }
+                if (retainedAmount.compareTo(deposit) > 0) {
+                    retainedAmount = safeMoney(deposit);
+                }
+
+                if (restoredAmount.compareTo(BigDecimal.ZERO) < 0 || restoredAmount.compareTo(deposit) > 0) {
+                    restoredAmount = safeMoney(deposit.subtract(retainedAmount).max(BigDecimal.ZERO));
+                }
+
+                if (retainedAmount.add(restoredAmount).compareTo(safeMoney(deposit)) != 0) {
+                    restoredAmount = safeMoney(deposit.subtract(retainedAmount).max(BigDecimal.ZERO));
+                }
+
+                if (damageAmount.compareTo(BigDecimal.ZERO) <= 0 && retainedAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    damageAmount = retainedAmount;
+                }
+
+                String cautionOutcome = resolveCautionOutcomeLabel(deposit, retainedAmount, restoredAmount);
+                if ("Remboursement total".equals(cautionOutcome)) {
+                    refundNote = "Clôture location: caution remboursée en totalité.";
+                } else if ("Remboursement partiel".equals(cautionOutcome)) {
+                    refundNote = "Clôture location: caution remboursée partiellement après retenue des dommages.";
+                } else if ("Aucun remboursement".equals(cautionOutcome)) {
+                    refundNote = "Clôture location: caution totalement retenue (aucun remboursement).";
+                } else {
+                    refundNote = "Clôture location: caution ajustée selon l'état des lieux.";
+                }
+            }
 
             if ("CANCELLED_REFUNDED_TOTAL".equals(phase) || "CANCELLED_BY_AGENCY_REFUND_TOTAL".equals(phase)) {
                 refundedAdvance = advance;
@@ -338,10 +383,21 @@ public class PdfServiceImpl implements PdfService {
             addRow(table, "Paiement final", money(finalPayment));
             addRow(table, "Caution", money(deposit));
             addRow(table, "Statut caution", mapDepositStatusLabel(res.getDepositStatus()));
-            addRow(table, "Avance remboursée", money(refundedAdvance));
-            addRow(table, "Caution remboursée", money(refundedDeposit));
-            addRow(table, "Montant perdu", money(totalLost));
-            addRow(table, "Total remboursé", money(totalRefunded));
+            addRow(table, "Motif dégâts", damageReason);
+
+            if (cancellationWithRefund) {
+                addRow(table, "Avance remboursée", money(refundedAdvance));
+                addRow(table, "Caution remboursée", money(refundedDeposit));
+                addRow(table, "Montant perdu", money(totalLost));
+                addRow(table, "Total remboursé", money(totalRefunded));
+            } else if (res.getStatut() == ReservationStatus.COMPLETED) {
+                addRow(table, "Montant dommages", money(damageAmount));
+                addRow(table, "Caution retenue", money(retainedAmount));
+                addRow(table, "Caution restituée", money(restoredAmount));
+                addRow(table, "Issue caution", resolveCautionOutcomeLabel(deposit, retainedAmount, restoredAmount));
+                addRow(table, "Caution remboursée", resolveCautionRefundedDisplay(deposit, retainedAmount, restoredAmount));
+            }
+
             addRow(table, "Total net location", money(netLocationPaid));
             addRow(table, "Note remboursement", refundNote);
 
@@ -478,6 +534,14 @@ public class PdfServiceImpl implements PdfService {
         return value;
     }
 
+    private String safeDamageReason(String value) {
+        if (value == null || value.isBlank()) {
+            return "Aucun dommage constaté";
+        }
+
+        return value;
+    }
+
     private String mapDepositStatusLabel(DepositStatus status) {
         if (status == null) {
             return "En attente";
@@ -494,6 +558,58 @@ public class PdfServiceImpl implements PdfService {
             default:
                 return "En attente";
         }
+    }
+
+    private String resolveClosingBadgeLabel(DepositStatus status, ReservationStatus reservationStatus) {
+        if (reservationStatus == ReservationStatus.COMPLETED) {
+            if (status == DepositStatus.RELEASED) {
+                return "CAUTION RESTITUÉE";
+            }
+            if (status == DepositStatus.FORFEITED) {
+                return "CAUTION AJUSTÉE";
+            }
+            return "CLÔTURÉE";
+        }
+
+        if (status == DepositStatus.RELEASED) {
+            return "ACQUITTÉE";
+        }
+
+        return "EN ATTENTE";
+    }
+
+    private String resolveCautionOutcomeLabel(BigDecimal deposit, BigDecimal retained, BigDecimal restored) {
+        if (safeMoney(deposit).compareTo(BigDecimal.ZERO) <= 0) {
+            return "Aucune caution configurée";
+        }
+
+        if (safeMoney(retained).compareTo(BigDecimal.ZERO) <= 0 && safeMoney(restored).compareTo(safeMoney(deposit)) >= 0) {
+            return "Remboursement total";
+        }
+
+        if (safeMoney(retained).compareTo(BigDecimal.ZERO) > 0 && safeMoney(restored).compareTo(BigDecimal.ZERO) > 0) {
+            return "Remboursement partiel";
+        }
+
+        if (safeMoney(restored).compareTo(BigDecimal.ZERO) <= 0 && safeMoney(retained).compareTo(safeMoney(deposit)) >= 0) {
+            return "Aucun remboursement";
+        }
+
+        return "Ajustement caution";
+    }
+
+    private String resolveCautionRefundedDisplay(BigDecimal deposit, BigDecimal retained, BigDecimal restored) {
+        String outcome = resolveCautionOutcomeLabel(deposit, retained, restored);
+        if ("Remboursement total".equals(outcome)) {
+            return "OUI (total)";
+        }
+        if ("Remboursement partiel".equals(outcome)) {
+            return "OUI (partiel)";
+        }
+        if ("Aucun remboursement".equals(outcome)) {
+            return "NON";
+        }
+        return "-";
     }
 
     private BigDecimal safeMoney(BigDecimal value) {

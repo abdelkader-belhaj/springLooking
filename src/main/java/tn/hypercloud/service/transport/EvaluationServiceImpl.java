@@ -40,8 +40,10 @@ public class EvaluationServiceImpl implements IEvaluationService {
 
         // 2. Fetch the evaluateur User using the transient ID
         if (evaluationTransport.getEvaluateurId() != null) {
-            User evaluateur = userRepository.findById(evaluationTransport.getEvaluateurId())
-                    .orElseThrow(() -> new RuntimeException("Evaluateur not found with id: " + evaluationTransport.getEvaluateurId()));
+            User evaluateur = resolveUserFromUserOrChauffeurId(
+                    evaluationTransport.getEvaluateurId(),
+                    "Evaluateur"
+            );
             evaluationTransport.setEvaluateur(evaluateur);
         } else {
             throw new IllegalArgumentException("Evaluateur ID is required");
@@ -49,11 +51,21 @@ public class EvaluationServiceImpl implements IEvaluationService {
 
         // 3. Fetch the evalue User using the transient ID
         if (evaluationTransport.getEvalueId() != null) {
-            User evalue = userRepository.findById(evaluationTransport.getEvalueId())
-                    .orElseThrow(() -> new RuntimeException("Evalue not found with id: " + evaluationTransport.getEvalueId()));
+            User evalue = resolveUserFromUserOrChauffeurId(
+                    evaluationTransport.getEvalueId(),
+                    "Evalue"
+            );
             evaluationTransport.setEvalue(evalue);
         } else {
             throw new IllegalArgumentException("Evalue ID is required");
+        }
+
+        // Safety net: for CLIENT_TO_DRIVER, trust course chauffeur mapping when available.
+        if (evaluationTransport.getType() == EvaluationType.CLIENT_TO_DRIVER
+                && evaluationTransport.getCourse() != null
+                && evaluationTransport.getCourse().getChauffeur() != null
+                && evaluationTransport.getCourse().getChauffeur().getUtilisateur() != null) {
+            evaluationTransport.setEvalue(evaluationTransport.getCourse().getChauffeur().getUtilisateur());
         }
 
         EvaluationTransport existing = evaluationRepository.findFirstByCourseAndType(
@@ -66,6 +78,27 @@ public class EvaluationServiceImpl implements IEvaluationService {
         }
 
         return enrich(evaluationRepository.save(evaluationTransport));
+    }
+
+    private User resolveUserFromUserOrChauffeurId(Long candidateId, String label) {
+        if (candidateId == null || candidateId <= 0) {
+            throw new IllegalArgumentException(label + " ID is required");
+        }
+
+        User directUser = userRepository.findById(candidateId).orElse(null);
+        if (directUser != null) {
+            return directUser;
+        }
+
+        Chauffeur chauffeur = chauffeurRepository.findById(candidateId).orElse(null);
+        if (chauffeur != null && chauffeur.getUtilisateur() != null) {
+            Long userId = chauffeur.getUtilisateur().getId();
+            if (userId != null && userId > 0) {
+                return userRepository.findById(userId).orElse(chauffeur.getUtilisateur());
+            }
+        }
+
+        throw new RuntimeException(label + " not found with id: " + candidateId);
     }
     @Override
     public EvaluationTransport updateEvaluation(EvaluationTransport evaluationTransport) {

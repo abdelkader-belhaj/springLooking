@@ -75,6 +75,19 @@ public class ReservationLocation {
     private String rejectionReason;
     @Column(precision = 10, scale = 2)
     private BigDecimal depositAmount;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal montantDommages;
+
+    @Column(columnDefinition = "TEXT")
+    private String descriptionDommages;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal montantCautionRetenu;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal montantCautionRestitue;
+
     @Column(precision = 10, scale = 2)
     private BigDecimal montantCommission;
 

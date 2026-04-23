@@ -1,6 +1,7 @@
 package tn.hypercloud.service.transport;
 
 import org.springframework.transaction.annotation.Transactional;
+import tn.hypercloud.dto.transport.CheckoutCautionRequestDto;
 import tn.hypercloud.entity.transport.ReservationLocation;
 import tn.hypercloud.entity.transport.enums.PaiementMethode;
 
@@ -29,7 +30,7 @@ public interface IReservationLocationService {
     ReservationLocation approveLicense(Long id, boolean approved, String reason); // admin only
     ReservationLocation signContract(Long id, String base64Signature, String signedBy);
     void checkInVehicle(Long id, List<String> photoUrls); // état des lieux départ
-    void checkOutVehicle(Long id, List<String> photoUrls); // retour
+    void checkOutVehicle(Long id, CheckoutCautionRequestDto checkoutRequest); // retour
     boolean isVehicleAvailable(Long vehiculeId, LocalDateTime start, LocalDateTime end);
 
     List<ReservationLocation> getReservationsByAgence(Long agenceId);

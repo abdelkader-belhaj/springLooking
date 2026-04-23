@@ -31,6 +31,10 @@ public record ReservationLocationDto(
         BigDecimal prixTotal,
         BigDecimal advanceAmount,
         BigDecimal depositAmount,
+        BigDecimal montantDommages,
+        String descriptionDommages,
+        BigDecimal montantCautionRetenu,
+        BigDecimal montantCautionRestitue,
         DepositStatus depositStatus,
 
         String paymentPhase,

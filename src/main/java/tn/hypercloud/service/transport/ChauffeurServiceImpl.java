@@ -13,6 +13,7 @@ import tn.hypercloud.repository.transport.VehiculeRepository;
 import tn.hypercloud.repository.user.UserRepository;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Implémentation Service Chauffeur - Pattern classe
@@ -55,23 +56,32 @@ public class ChauffeurServiceImpl implements IChauffeurService {
 
     @Override
     public Chauffeur getChauffeurById(Long id) {
-        return chauffeurRepository.findById(id).orElse(null);
+        Chauffeur chauffeur = chauffeurRepository.findById(id).orElse(null);
+        return enrichChauffeurIdentity(chauffeur);
     }
 
     @Override
     public List<Chauffeur> getAllChauffeurs() {
-        return chauffeurRepository.findAll();
+        return chauffeurRepository.findAll().stream()
+                .map(this::enrichChauffeurIdentity)
+                .collect(Collectors.toList());
     }
 
     // ========== RECHERCHES SPÉCIFIQUES ==========
     @Override
     public List<Chauffeur> getAvailableChauffeurs() {
-        return chauffeurRepository.findByDisponibilite(DisponibiliteStatut.AVAILABLE);
+        return chauffeurRepository.findByDisponibilite(DisponibiliteStatut.AVAILABLE)
+                .stream()
+                .map(this::enrichChauffeurIdentity)
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<Chauffeur> getActiveChauffeurs() {
-        return chauffeurRepository.findByStatut(ChauffeurStatut.ACTIVE);
+        return chauffeurRepository.findByStatut(ChauffeurStatut.ACTIVE)
+                .stream()
+                .map(this::enrichChauffeurIdentity)
+                .collect(Collectors.toList());
     }
 
     // ========== CHANGEMENTS DE STATUT ==========
@@ -168,9 +178,20 @@ public class ChauffeurServiceImpl implements IChauffeurService {
         Chauffeur c = chauffeurRepository.findByUtilisateur_Id(userId)
                 .orElseThrow(() -> new RuntimeException("Chauffeur introuvable pour userId=" + userId));
 
-        if (c.getUtilisateur() != null) {
-            c.setUtilisateurId(c.getUtilisateur().getId());
+        return enrichChauffeurIdentity(c);
+    }
+
+    private Chauffeur enrichChauffeurIdentity(Chauffeur chauffeur) {
+        if (chauffeur == null) {
+            return null;
         }
-        return c;
+
+        if (chauffeur.getUtilisateur() != null) {
+            chauffeur.setUtilisateurId(chauffeur.getUtilisateur().getId());
+            chauffeur.setNomAffichage(chauffeur.getUtilisateur().getUsername());
+            chauffeur.setEmailAffichage(chauffeur.getUtilisateur().getEmail());
+        }
+
+        return chauffeur;
     }
 }

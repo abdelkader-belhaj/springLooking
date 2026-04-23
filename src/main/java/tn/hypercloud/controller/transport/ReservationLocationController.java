@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tn.hypercloud.dto.transport.CheckoutCautionRequestDto;
 import tn.hypercloud.dto.transport.EtatDesLieuxPhotoDto;
 import tn.hypercloud.dto.transport.ReservationLocationDto;
 import tn.hypercloud.entity.transport.EtatDesLieuxPhoto;
@@ -157,9 +158,12 @@ public class ReservationLocationController {
     }
 
     @PostMapping("/{id}/check-out")
-    public ResponseEntity<String> checkOut(@PathVariable Long id, @RequestBody List<String> photoUrls) {
-        reservationService.checkOutVehicle(id, photoUrls);
-        return ResponseEntity.ok("Check-out effectue avec " + photoUrls.size() + " photo(s)");
+    public ResponseEntity<String> checkOut(@PathVariable Long id, @RequestBody CheckoutCautionRequestDto checkoutRequest) {
+        reservationService.checkOutVehicle(id, checkoutRequest);
+        int photosCount = checkoutRequest != null && checkoutRequest.photoUrls() != null
+                ? checkoutRequest.photoUrls().size()
+                : 0;
+        return ResponseEntity.ok("Check-out effectue avec " + photosCount + " photo(s)");
     }
 
     @GetMapping("/availability")
@@ -312,6 +316,10 @@ public class ReservationLocationController {
                 r.getPrixTotal(),
                 r.getAdvanceAmount(),
                 r.getDepositAmount(),
+                r.getMontantDommages(),
+                r.getDescriptionDommages(),
+                r.getMontantCautionRetenu(),
+                r.getMontantCautionRestitue(),
                 r.getDepositStatus(),
 
                 r.getPaymentPhase(),

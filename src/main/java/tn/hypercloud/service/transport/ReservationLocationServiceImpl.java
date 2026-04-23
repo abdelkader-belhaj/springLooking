@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tn.hypercloud.dto.transport.CheckoutCautionRequestDto;
 import tn.hypercloud.dto.transport.DriverNotificationDTO;
 import tn.hypercloud.entity.transport.*;
 import tn.hypercloud.entity.transport.enums.*;
@@ -1033,12 +1034,69 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
     }
     @Override
     @Transactional
-    public void checkOutVehicle(Long id, List<String> photoUrls) {
+    public void checkOutVehicle(Long id, CheckoutCautionRequestDto checkoutRequest) {
         ReservationLocation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Réservation non trouvée"));
 
+        List<String> photoUrls = checkoutRequest != null && checkoutRequest.photoUrls() != null
+                ? checkoutRequest.photoUrls()
+                : List.of();
+
         if (photoUrls == null || photoUrls.isEmpty()) {
             throw new IllegalArgumentException("Au moins une photo est requise pour le check-out");
+        }
+
+        BigDecimal depositAmount = normalizeMoney(reservation.getDepositAmount());
+        boolean constatDommages = checkoutRequest != null && checkoutRequest.constatDommages();
+        BigDecimal montantDommages = normalizeMoney(
+                checkoutRequest != null ? checkoutRequest.montantDommages() : null
+        );
+        String descriptionDommages = checkoutRequest != null && checkoutRequest.descriptionDommages() != null
+                ? checkoutRequest.descriptionDommages().trim()
+                : null;
+        BigDecimal montantCautionRetenu = normalizeMoney(
+                checkoutRequest != null ? checkoutRequest.montantCautionRetenu() : null
+        );
+
+        if (!constatDommages) {
+            montantDommages = BigDecimal.ZERO;
+            descriptionDommages = "Aucun dommage constaté";
+            montantCautionRetenu = BigDecimal.ZERO;
+        } else {
+            if (descriptionDommages == null || descriptionDommages.isBlank()) {
+                throw new IllegalArgumentException("La description des dommages est obligatoire en cas de constat");
+            }
+
+            if (montantDommages.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Le montant estimé des réparations doit être supérieur à 0 en cas de dommages");
+            }
+
+            if (montantCautionRetenu.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("Le montant retenu sur la caution ne peut pas être négatif");
+            }
+
+            if (montantDommages.compareTo(depositAmount) >= 0) {
+                montantCautionRetenu = depositAmount;
+            } else if (montantCautionRetenu.compareTo(depositAmount) > 0) {
+                montantCautionRetenu = depositAmount;
+            }
+
+            if (montantCautionRetenu.compareTo(montantDommages) > 0) {
+                montantCautionRetenu = montantDommages;
+            }
+        }
+
+        BigDecimal montantCautionRestitue = montantCautionRetenu.compareTo(BigDecimal.ZERO) > 0
+                ? depositAmount.subtract(montantCautionRetenu).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP)
+                : depositAmount;
+
+        if (checkoutRequest != null && checkoutRequest.montantCautionRestitue() != null
+                && checkoutRequest.montantCautionRestitue().compareTo(BigDecimal.ZERO) >= 0) {
+            // Backend remains authoritative, but keep the frontend-calculated value if consistent.
+            BigDecimal requestedRestitue = normalizeMoney(checkoutRequest.montantCautionRestitue());
+            if (requestedRestitue.compareTo(montantCautionRestitue) == 0) {
+                montantCautionRestitue = requestedRestitue;
+            }
         }
 
         for (String photoUrl : photoUrls) {
@@ -1057,25 +1115,40 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
 
             reservation.getEtatDesLieuxPhotos().add(photo);
         }
+
+        reservation.setMontantDommages(montantDommages);
+        reservation.setDescriptionDommages(descriptionDommages);
+        reservation.setMontantCautionRetenu(montantCautionRetenu);
+        reservation.setMontantCautionRestitue(montantCautionRestitue);
+
         // Fin de la location
         reservation.setStatut(ReservationStatus.COMPLETED);
-        // Refund is now a separate agency-confirmed action.
-        reservation.setDepositStatus(DepositStatus.HELD);
+        reservation.setDepositStatus(
+                montantCautionRetenu.compareTo(BigDecimal.ZERO) > 0
+                        ? DepositStatus.FORFEITED
+                        : DepositStatus.RELEASED
+        );
         reservation.setDateModification(LocalDateTime.now());
         ReservationLocation saved = reservationRepository.save(reservation);
+
+        if (montantCautionRetenu.compareTo(BigDecimal.ZERO) > 0) {
+            notifyCheckoutDamageOutcome(saved, montantDommages, montantCautionRetenu, montantCautionRestitue);
+        } else {
+            notifyClientDepositReleased(saved);
+        }
 
         notifyReservationWorkflowStep(
             saved,
             "CHECK_OUT",
             "Check-out validé",
-            "Le check-out de la réservation #" + saved.getIdReservation() + " est validé. Remboursement de caution possible.",
+            buildCheckoutWorkflowMessage(saved, montantDommages, montantCautionRetenu, montantCautionRestitue),
             true,
             true,
             java.util.Map.of(
                 "reservationId", saved.getIdReservation(),
                 "reservationStatus", String.valueOf(saved.getStatut()),
                 "paymentPhase", String.valueOf(saved.getPaymentPhase()),
-                "nextStep", "DEPOSIT_REFUND"
+                "nextStep", montantCautionRetenu.compareTo(BigDecimal.ZERO) > 0 ? "DEPOSIT_SETTLED" : "DEPOSIT_RELEASED"
             )
         );
     }
@@ -1090,7 +1163,7 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
             throw new IllegalStateException("Le remboursement de caution est possible uniquement après check-out");
         }
 
-        if (reservation.getDepositStatus() == DepositStatus.RELEASED) {
+        if (reservation.getDepositStatus() == DepositStatus.RELEASED || reservation.getDepositStatus() == DepositStatus.FORFEITED) {
             return reservation; // idempotent
         }
 
@@ -1099,6 +1172,10 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
         }
 
         reservation.setDepositStatus(DepositStatus.RELEASED);
+        if (normalizeMoney(reservation.getMontantCautionRetenu()).compareTo(BigDecimal.ZERO) <= 0) {
+            reservation.setMontantCautionRetenu(BigDecimal.ZERO);
+            reservation.setMontantCautionRestitue(normalizeMoney(reservation.getDepositAmount()));
+        }
         reservation.setDateModification(LocalDateTime.now());
         ReservationLocation saved = reservationRepository.save(reservation);
 
@@ -1118,6 +1195,79 @@ public class ReservationLocationServiceImpl implements IReservationLocationServi
                 )
         );
         return saved;
+    }
+
+    private String buildCheckoutWorkflowMessage(
+            ReservationLocation reservation,
+            BigDecimal montantDommages,
+            BigDecimal montantCautionRetenu,
+            BigDecimal montantCautionRestitue
+    ) {
+        BigDecimal damages = normalizeMoney(montantDommages);
+        BigDecimal retained = normalizeMoney(montantCautionRetenu);
+        BigDecimal restitue = normalizeMoney(montantCautionRestitue);
+
+        if (retained.compareTo(BigDecimal.ZERO) <= 0) {
+            return "Le check-out de la réservation #" + reservation.getIdReservation()
+                    + " est validé. Aucun dommage retenu. Caution à restituer: " + restitue + " TND.";
+        }
+
+        if (damages.compareTo(reservation.getDepositAmount() == null ? BigDecimal.ZERO : reservation.getDepositAmount()) >= 0) {
+            return "Le check-out de la réservation #" + reservation.getIdReservation()
+                    + " est validé. Dommages supérieurs ou égaux à la caution. Montant retenu: " + retained
+                    + " TND. Le surplus éventuel sort du système.";
+        }
+
+        return "Le check-out de la réservation #" + reservation.getIdReservation()
+                + " est validé. Dommages partiels. Montant retenu: " + retained
+                + " TND. Montant restitué: " + restitue + " TND.";
+    }
+
+    private void notifyCheckoutDamageOutcome(
+            ReservationLocation reservation,
+            BigDecimal montantDommages,
+            BigDecimal montantCautionRetenu,
+            BigDecimal montantCautionRestitue
+    ) {
+        try {
+            User client = reservation.getClient();
+            if (client == null && reservation.getClientId() != null) {
+                client = userRepository.findById(reservation.getClientId()).orElse(null);
+            }
+
+            User agencyUser = resolveAgencyUser(reservation);
+            String message;
+            if (normalizeMoney(montantDommages).compareTo(normalizeMoney(reservation.getDepositAmount())) >= 0) {
+                message = "Dommages totaux détectés sur la réservation #" + reservation.getIdReservation()
+                        + ". Caution retenue: " + montantCautionRetenu + " TND."
+                        + " Le surplus éventuel des réparations doit être traité hors système.";
+            } else {
+                message = "Dommages partiels détectés sur la réservation #" + reservation.getIdReservation()
+                        + ". Montant retenu: " + montantCautionRetenu + " TND."
+                        + " Montant restitué: " + montantCautionRestitue + " TND.";
+            }
+
+            DriverNotificationDTO notification = DriverNotificationDTO.builder()
+                    .type("CHECK_OUT_DAMAGE")
+                    .titre("Checkout avec dommages")
+                    .message(message)
+                    .data(Map.of(
+                            "reservationId", reservation.getIdReservation(),
+                            "montantDommages", normalizeMoney(montantDommages),
+                            "montantCautionRetenu", normalizeMoney(montantCautionRetenu),
+                            "montantCautionRestitue", normalizeMoney(montantCautionRestitue),
+                            "depositStatus", String.valueOf(reservation.getDepositStatus())
+                    ))
+                    .build();
+
+            if (client != null) {
+                sendReservationNotificationToUser(client, notification);
+            }
+            if (agencyUser != null) {
+                sendReservationNotificationToUser(agencyUser, notification);
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void notifyReservationWorkflowStep(
