@@ -49,29 +49,30 @@ public class SecurityConfig {
                 // Desactiver CSRF: l'application utilise un flux hybride JWT + session
                 .csrf(AbstractHttpConfigurer::disable)
                 //Session :
-    //Login==>Serveur crée une session et la stocke en mémoire==>Navigateur reçoit un cookie
+                //Login==>Serveur crée une session et la stocke en mémoire==>Navigateur reçoit un cookie
                 //JWT(JSON Web Token)
-    //Login==>Serveur génère un token et l'envoie au client ==> Client stocke le token
+                //Login==>Serveur génère un token et l'envoie au client ==> Client stocke le token
                 // Autoriser les appels front (Angular) vers l'API
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeHttpRequests(auth -> auth
                         // Routes publiques — pas besoin de token
-                    .requestMatchers(
-                        "/api/auth/login",
-                        "/api/auth/login-google",
-                        "/api/auth/register",
-                        "/api/auth/login-face",
-                        "/api/auth/register-face",
-                        "/api/auth/forgot-password",
-                        "/api/auth/reset-password",
-                        "/api/categories",
-                        "/api/categories/**",
-                        "/api/logements",
-                        "/api/logements/public",
-                        "/api/logements/categorie/**",
-                        "/api/logements/{id}"
-                    ).permitAll()
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/login-google",
+                                "/api/auth/register",
+                                "/api/auth/login-face",
+                                "/api/auth/register-face",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/categories",
+                                "/api/categories/**",
+                                "/api/logements",
+                                "/api/logements/public",
+                                "/api/logements/categorie/**",
+                                "/api/logements/{id}"
+
+                        ).permitAll()
 
                         .requestMatchers(HttpMethod.GET, "/api/forums/**").permitAll()
                         .requestMatchers("/api/forums/**").permitAll()
@@ -81,7 +82,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/reviews/**").permitAll()
                         .requestMatchers("/api/moderation/**").permitAll()
                         .requestMatchers("/api/ai/**").permitAll()
-                    .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
+                        .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
 
                         // Routes admin uniquement
                         //Token ==> accès routes normales Mais : accès routes admin " YES "
@@ -98,12 +99,12 @@ public class SecurityConfig {
 
                 // Activer une session serveur par utilisateur
                 .sessionManagement(session ->
-                    session
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                        .sessionFixation(sessionFixation -> sessionFixation.migrateSession())
-                        .maximumSessions(1)
-                        .maxSessionsPreventsLogin(false)
-                        .sessionRegistry(sessionRegistry()))
+                        session
+                                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                                .sessionFixation(sessionFixation -> sessionFixation.migrateSession())
+                                .maximumSessions(1)
+                                .maxSessionsPreventsLogin(false)
+                                .sessionRegistry(sessionRegistry()))
 
                 .authenticationProvider(authenticationProvider())
 

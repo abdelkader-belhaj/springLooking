@@ -113,10 +113,10 @@ public class AuthService {
         //    Si incorrect -> leve une exception automatiquement
         try {
             authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                    request.getEmail(),
-                    request.getPassword()
-                )
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
             );
         } catch (DisabledException ex) {
             throw new DisabledException("Votre compte est en attente de validation par l administrateur");

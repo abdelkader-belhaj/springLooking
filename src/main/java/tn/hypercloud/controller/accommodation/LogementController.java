@@ -64,7 +64,7 @@ public class LogementController {
     @GetMapping("/recommendations/{userId}")
     public ResponseEntity<List<RecommendationResponse>> getRecommendations(
             @PathVariable Integer userId) {
-        
+
         return ResponseEntity.ok(recommendationService.getRecommandationsPourUser(userId));
     }
 

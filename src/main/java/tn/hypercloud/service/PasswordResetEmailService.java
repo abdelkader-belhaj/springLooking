@@ -37,7 +37,7 @@ public class PasswordResetEmailService {
             helper.setTo(user.getEmail());
             helper.setSubject("Reinitialisation de votre mot de passe");
             helper.setText(
-                "Bonjour " + user.getFullName() + ",\n\n"
+                    "Bonjour " + user.getFullName() + ",\n\n"
                             + "Une demande de reinitialisation de mot de passe a ete effectuee.\n"
                             + "Cliquez sur ce lien pour definir un nouveau mot de passe :\n"
                             + resetLink + "\n\n"
@@ -63,7 +63,7 @@ public class PasswordResetEmailService {
             helper.setTo(user.getEmail());
             helper.setSubject("Votre compte TunisiaTour a ete active");
             helper.setText(
-                "Bonjour " + user.getFullName() + ",\n\n"
+                    "Bonjour " + user.getFullName() + ",\n\n"
                             + "Bonne nouvelle : votre compte a ete valide par l administrateur.\n"
                             + "Vous pouvez maintenant vous connecter a votre espace TunisiaTour.\n\n"
                             + "Si vous n etes pas a l origine de cette inscription, contactez le support."
