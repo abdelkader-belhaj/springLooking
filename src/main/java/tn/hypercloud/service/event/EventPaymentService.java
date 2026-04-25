@@ -59,11 +59,9 @@ public class EventPaymentService {
         @Value("${app.payment.stripe.secret-key:}")
         private String stripeSecretKey;
 
-        @Value("${app.payment.stripe.currency:eur}")
-        private String stripeCurrency;
+        @Value("${app.payment.stripe.exchange-rate-tnd-to-eur:0.30}")
+        private BigDecimal tndToEurRate;
 
-        @Value("${app.frontend.base-url:http://localhost:4200}")
-        private String frontendBaseUrl;
     @Transactional(readOnly = true)
     public List<EventPaymentResponse> getAll() {
         return repository.findAll()
@@ -138,6 +136,8 @@ public class EventPaymentService {
                 }
 
                 BigDecimal payableAmount = resolveStripeAmount(reservation, request.getPromoCode());
+                String checkoutCurrency = resolveCheckoutCurrency();
+                BigDecimal checkoutAmount = convertAmountForStripe(payableAmount, checkoutCurrency);
                 EventPayment payment = repository.findByReservationId(reservation.getId())
                                 .orElseGet(() -> EventPayment.builder()
                                                 .reservation(reservation)
@@ -148,13 +148,13 @@ public class EventPaymentService {
                         throw new RuntimeException("Reservation already paid");
                 }
 
-                StripeSessionPayload session = createStripeSession(reservation, payableAmount);
+                StripeSessionPayload session = createStripeSession(reservation, checkoutAmount, checkoutCurrency);
 
-                payment.setAmount(payableAmount);
+                payment.setAmount(checkoutAmount);
                 payment.setPaymentMethod("STRIPE");
                 payment.setPaymentStatus(EventPayment.PaymentStatus.PENDING);
                 payment.setTransactionId(session.sessionId());
-                payment.setCurrency(normalizeCurrency(stripeCurrency));
+                payment.setCurrency(checkoutCurrency);
                 repository.save(payment);
 
                 return StripeCheckoutSessionResponse.builder()
@@ -346,16 +346,16 @@ public class EventPaymentService {
                 .build();
     }
 
-        private StripeSessionPayload createStripeSession(EventReservation reservation, BigDecimal payableAmount) {
+        private StripeSessionPayload createStripeSession(EventReservation reservation, BigDecimal payableAmount, String checkoutCurrency) {
                 if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
                         throw new RuntimeException("Stripe is not configured");
                 }
 
-                String successUrl = frontendBaseUrl.replaceAll("/$", "")
-                                + "/payment/" + reservation.getId()
-                                + "?stripeSessionId={CHECKOUT_SESSION_ID}";
-                String cancelUrl = frontendBaseUrl.replaceAll("/$", "")
-                                + "/payment/" + reservation.getId();
+                String successUrl = "http://localhost:4200"
+                                + "/mes-reservations-event?reservationId=" + reservation.getId()
+                                + "&stripeSessionId={CHECKOUT_SESSION_ID}";
+                String cancelUrl = "http://localhost:4200"
+                                + "/mes-reservations-event?reservationId=" + reservation.getId();
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setBasicAuth(stripeSecretKey, "");
@@ -371,7 +371,7 @@ public class EventPaymentService {
                 body.add("metadata[eventId]", reservation.getEvent() != null && reservation.getEvent().getId() != null
                                 ? String.valueOf(reservation.getEvent().getId()) : "");
                 body.add("line_items[0][quantity]", "1");
-                body.add("line_items[0][price_data][currency]", normalizeCurrency(stripeCurrency));
+                body.add("line_items[0][price_data][currency]", checkoutCurrency);
                 body.add("line_items[0][price_data][unit_amount]", payableAmount.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).toPlainString());
                 body.add("line_items[0][price_data][product_data][name]", reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Event ticket");
                 body.add("line_items[0][price_data][product_data][description]", buildStripeDescription(reservation));
@@ -437,6 +437,15 @@ public class EventPaymentService {
                         throw new RuntimeException("Code promo invalide ou expiré.");
                 }
 
+                LocalDateTime now = LocalDateTime.now();
+                if (event.getPromoStartDate() != null && now.isBefore(event.getPromoStartDate())) {
+                        throw new RuntimeException("Code promo pas encore valable.");
+                }
+
+                if (event.getPromoEndDate() != null && now.isAfter(event.getPromoEndDate())) {
+                        throw new RuntimeException("Code promo expiré.");
+                }
+
                 Integer percent = event.getPromoPercent();
                 if (percent == null || percent <= 0) {
                         throw new RuntimeException("Code promo invalide ou expiré.");
@@ -444,6 +453,25 @@ public class EventPaymentService {
 
                 BigDecimal discount = baseAmount.multiply(BigDecimal.valueOf(percent)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                 return baseAmount.subtract(discount).setScale(2, RoundingMode.HALF_UP);
+        }
+
+        private BigDecimal convertAmountForStripe(BigDecimal tndAmount, String checkoutCurrency) {
+                if (tndAmount == null) {
+                        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                }
+
+                if ("eur".equalsIgnoreCase(checkoutCurrency)) {
+                        BigDecimal rate = tndToEurRate == null || tndToEurRate.compareTo(BigDecimal.ZERO) <= 0
+                                        ? new BigDecimal("0.30")
+                                        : tndToEurRate;
+                        return tndAmount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+                }
+
+                return tndAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        private String resolveCheckoutCurrency() {
+                return "eur";
         }
 
         private String buildStripeDescription(EventReservation reservation) {

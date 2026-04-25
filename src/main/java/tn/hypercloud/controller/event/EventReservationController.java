@@ -37,12 +37,12 @@ public class EventReservationController {
         return ResponseEntity.ok(service.getAll());
     }
 
-    @GetMapping("/mes-reservations")
+    @GetMapping("/mes-reservations-event")
     @PreAuthorize("hasRole('CLIENT_TOURISTE')")
-    public ResponseEntity<List<EventReservationResponse>> getMesReservations(
+    public ResponseEntity<List<EventReservationResponse>> getMesReservationsEvent(
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(
-                service.getMesReservations(
+                service.getMesReservationsEvent(
                         userDetails.getUsername()));
     }
 

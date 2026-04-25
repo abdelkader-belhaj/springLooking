@@ -129,7 +129,6 @@ public class InvoiceService {
             details.add(new Phrase("Evenement: " + safe(eventTitle) + "\n", new Font(Font.FontFamily.HELVETICA, 11)));
             details.add(new Phrase("Date: " + eventDate.format(dateTimeFormatter) + "\n", new Font(Font.FontFamily.HELVETICA, 11)));
             details.add(new Phrase("Lieu: " + safe(eventAddress) + "\n", new Font(Font.FontFamily.HELVETICA, 11)));
-            details.add(new Phrase("Reservation: #" + reservationId + "\n", new Font(Font.FontFamily.HELVETICA, 11)));
             details.add(new Phrase("Ticket: " + ticket.getTicketNumber() + "/" + tickets.size() + "\n", new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD)));
             details.add(new Phrase("Code ticket: " + safe(ticket.getTicketCode()) + "\n", new Font(Font.FontFamily.COURIER, 11, Font.BOLD)));
             document.add(details);

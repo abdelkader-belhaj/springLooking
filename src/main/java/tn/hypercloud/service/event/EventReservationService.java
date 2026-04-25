@@ -81,7 +81,7 @@ public class EventReservationService {
                 "Not authorized to view this reservation");
     }
 
-    public List<EventReservationResponse> getMesReservations(String email) {
+    public List<EventReservationResponse> getMesReservationsEvent(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new ApiException(HttpStatus.NOT_FOUND, "User not found"));

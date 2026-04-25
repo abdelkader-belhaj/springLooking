@@ -98,7 +98,7 @@ public class EventEmailService {
             ticketItems
           );
 
-          String ticketFileName = "billets_" + reservationId + "_" + java.time.LocalDate.now() + ".pdf";
+          String ticketFileName = "billets-electroniques-" + java.time.LocalDate.now() + ".pdf";
           attachments.put(ticketFileName, ticketsPdf);
             }
         } catch (Exception e) {
@@ -186,7 +186,7 @@ public class EventEmailService {
 
                  <div style="background:#fff;padding:20px;border-radius:10px;margin:24px 0;border-left:5px solid #0ea5e9;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
                    <h3 style="margin:0 0 12px 0;color:#111827;font-size:16px;font-weight:600">Détails de votre réservation</h3>
-                   <table style="width:100%;border-collapse:collapse;font-size:14px">
+                   <table style="width:100%%;border-collapse:collapse;font-size:14px">
                      <tr>
                        <td style="padding:6px 0;color:#4b5563"><strong>Événement</strong></td>
                        <td style="padding:6px 0;text-align:right">%s</td>
