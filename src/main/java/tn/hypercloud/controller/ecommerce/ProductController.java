@@ -166,9 +166,13 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(productDTO));
     }
 
+    /**
+     * GET /products
+     * Récupère uniquement les produits actifs (PUBLIC - clients uniquement)
+     */
     @GetMapping
     public ResponseEntity<List<ProductDTO>> getAllProducts() {
-        return ResponseEntity.ok(productService.getAllProducts());
+        return ResponseEntity.ok(productService.getActiveProducts());
     }
 
     @GetMapping("/{id}")
@@ -181,11 +185,8 @@ public class ProductController {
         return ResponseEntity.ok(productService.updateProduct(id, productDTO));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
-        productService.deleteProduct(id);
-        return ResponseEntity.noContent().build();
-    }
+    // NOTE: La suppression de produit est réservée aux artisans propriétaires via /api/ecommerce/artisan/products/{id}
+    // L'admin ne peut que désactiver/activer via PATCH /api/products/{id}/status
 
     // ========== MÉTHODES UTILITAIRES ==========
 

@@ -51,4 +51,12 @@ public class Product {
     @Column(name = "sales_count", nullable = false)
     @Builder.Default
     private int salesCount = 0;
+
+    /**
+     * Statut du produit: active, inactive, ou pending
+     * Les produits inactifs ne sont pas visibles aux clients
+     */
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String status = "active";
 }

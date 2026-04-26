@@ -32,6 +32,7 @@ public class DealFavoriteService {
                 .deal(deal)
                 .build();
         DealFavorite saved = dealFavoriteRepository.save(dealFavorite);
+        // Note: favoritesCount is now calculated from DealFavorite table, no need to update
         return mapToDTO(saved);
     }
 
@@ -51,6 +52,8 @@ public class DealFavoriteService {
         if (!dealFavoriteRepository.existsById(id)) {
             throw new RuntimeException("DealFavorite not found with id: " + id);
         }
+        DealFavorite dealFavorite = dealFavoriteRepository.findById(id).get();
+        // Note: favoritesCount is now calculated from DealFavorite table, no need to update
         dealFavoriteRepository.deleteById(id);
     }
 

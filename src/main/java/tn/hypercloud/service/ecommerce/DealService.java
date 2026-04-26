@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.dto.ecommerce.DealDTO;
 import tn.hypercloud.entity.ecommerce.Deal;
 import tn.hypercloud.repository.ecommerce.DealRepository;
+import tn.hypercloud.repository.ecommerce.DealFavoriteRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class DealService {
     private final DealRepository dealRepository;
+    private final DealFavoriteRepository dealFavoriteRepository;
 
     public DealDTO createDeal(DealDTO dealDTO) {
         Deal deal = Deal.builder()
@@ -71,6 +73,9 @@ public class DealService {
     }
 
     private DealDTO mapToDTO(Deal deal) {
+        // Calculate actual favorites count from DealFavorite table
+        long actualFavoritesCount = dealFavoriteRepository.countByDeal_Id(deal.getId());
+        
         return DealDTO.builder()
                 .id(deal.getId())
                 .title(deal.getTitle())
@@ -83,7 +88,24 @@ public class DealService {
                 .environment(deal.getEnvironment().toString())
                 .category(deal.getCategory().toString())
                 .duration(deal.getDuration().toString())
-                .favoritesCount(deal.getFavoritesCount())
+                .favoritesCount((int) actualFavoritesCount)
                 .build();
+    }
+    public DealDTO updateDealImage(Long id, String imagePath) {
+    Deal deal = dealRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Deal not found with id: " + id));
+    deal.setImage(imagePath);
+    Deal updated = dealRepository.save(deal);
+    return mapToDTO(updated);
+}
+
+    // Recalculate all deals' favorite counts from DealFavorite table
+    public void recalculateAllFavoritesCounts() {
+        List<Deal> allDeals = dealRepository.findAll();
+        for (Deal deal : allDeals) {
+            long actualCount = dealFavoriteRepository.countByDeal_Id(deal.getId());
+            deal.setFavoritesCount((int) actualCount);
+        }
+        dealRepository.saveAll(allDeals);
     }
 }

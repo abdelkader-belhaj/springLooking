@@ -43,3 +43,5 @@ cls
 ### Python virtualenv ###
 .venv/
 ai-face-service/.venv/
+### Uploaded files ###
+uploads/

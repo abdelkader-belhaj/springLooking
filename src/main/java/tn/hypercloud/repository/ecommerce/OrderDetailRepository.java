@@ -22,4 +22,9 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Long> 
      * Vérifier si un produit est dans une commande
      */
     boolean existsByOrderIdAndProductId(Long orderId, Long productId);
+
+    /**
+     * Récupère tous les détails de produits d'un artisan spécifique
+     */
+    List<OrderDetail> findByProductUserId(Long userId);
 }

@@ -30,7 +30,7 @@ public class Deal {
     @Column(nullable = false)
     private Budget budget;
 
-    @Column(length = 500)
+   @Column(columnDefinition = "TEXT")
     private String image;
 
     @Enumerated(EnumType.STRING)

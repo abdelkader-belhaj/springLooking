@@ -58,13 +58,15 @@ public class SecurityConfig {
                         "/api/auth/reset-password"
                     ).permitAll()
 
+                    // Static file uploads — publicly accessible
+                    .requestMatchers("/uploads/**").permitAll()
+
                     .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
 
                         // Routes admin uniquement
                         //Token ==> accès routes normales Mais : accès routes admin " YES "
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/deals/ai-generate").hasRole("ADMIN")
 
                         // Toutes les autres routes -> token obligatoire
                         //Token ==> accès routes normales Mais : accès routes admin " NO "

@@ -11,4 +11,9 @@ public class ArtisanStatsDTO {
     private double totalRevenue;
     private double averageProductPrice;
     private int totalStockItems;
+    private double thisMonthRevenue;
+    private long thisMonthSales;
+    private long productsSold;
+    private double commissionEarned;
+    private double netRevenue;
 }

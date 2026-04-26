@@ -7,6 +7,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import tn.hypercloud.dto.ecommerce.ProductDTO;
 import tn.hypercloud.dto.ecommerce.ArtisanStatsDTO;
+import tn.hypercloud.dto.ecommerce.ArtisanSaleDTO;
 import tn.hypercloud.entity.user.User;
 import tn.hypercloud.service.ecommerce.ProductService;
 import tn.hypercloud.repository.user.UserRepository;
@@ -207,6 +208,17 @@ public class ArtisanController {
         User currentUser = getCurrentUser();
         ArtisanStatsDTO stats = productService.getArtisanStats(currentUser.getId());
         return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * GET /api/ecommerce/artisan/sales
+     * Récupère la liste détaillée des ventes pour l'artisan actuellement authentifié
+     */
+    @GetMapping("/sales")
+    public ResponseEntity<List<ArtisanSaleDTO>> getArtisanSales() {
+        User currentUser = getCurrentUser();
+        List<ArtisanSaleDTO> sales = productService.getArtisanSales(currentUser.getId());
+        return ResponseEntity.ok(sales);
     }
 
 
