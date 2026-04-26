@@ -36,6 +36,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;
@@ -46,13 +47,13 @@ public class User implements UserDetails {
     @Column(nullable = false, length = 50)
     private Role role;
 
-    
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-  
+
 
     // Champs optionnels pour eCommerce (artisan)
     @Column(length = 20)
@@ -63,6 +64,9 @@ public class User implements UserDetails {
 
     @Column(name = "profile_image", length = 500)
     private String profileImage;
+
+    @Column(name = "google_sub", unique = true, length = 100)
+    private String googleSub;
 
     @Column(name = "face_embedding", columnDefinition = "LONGTEXT")
     private String faceEmbedding;
@@ -77,14 +81,26 @@ public class User implements UserDetails {
     private Double faceThreshold;
 
     @Builder.Default
-    @Column(name = "two_factor_enabled")
-    private boolean twoFactorEnabled = false;
+    @Column(name = "two_factor_enabled", columnDefinition = "boolean default false")
+    private Boolean twoFactorEnabled = false;
+
+    public boolean isTwoFactorEnabled() {
+        return Boolean.TRUE.equals(this.twoFactorEnabled);
+    }
 
     @Column(name = "two_factor_secret", length = 255)
     private String twoFactorSecret;
 
     @Column(name = "two_factor_activated_at")
     private LocalDateTime twoFactorActivatedAt;
+
+@Builder.Default
+@Column(name = "local_password_set", columnDefinition = "boolean default false")
+private Boolean localPasswordSet = false;
+
+public boolean isLocalPasswordSet() {
+    return Boolean.TRUE.equals(this.localPasswordSet);
+}
 
 
 
@@ -170,17 +186,17 @@ public class User implements UserDetails {
         return password;
     }
 
-    @Override 
+    @Override
     public boolean isAccountNonExpired()     { return true; }
-    @Override 
+    @Override
     public boolean isAccountNonLocked()      { return true; }
-    @Override 
+    @Override
     public boolean isCredentialsNonExpired() { return true; }
 
 // ============================================
 //  Cycle de vie JPA = Java Persistence API.
 //C la norme Java pour mapper les classes Java vers les tables SQL.
-// “cycle JPA” = comment l’entité naît, est gérée, se détache,  
+// “cycle JPA” = comment l’entité naît, est gérée, se détache,
 // puis se supprime, avec des hooks automatiques comme
 // // @PrePersist / @PreUpdate.
 // ============================================

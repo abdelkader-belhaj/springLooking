@@ -20,9 +20,17 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
+
 
 import java.util.List;
 
@@ -41,33 +49,61 @@ public class SecurityConfig {
                 // Desactiver CSRF: l'application utilise un flux hybride JWT + session
                 .csrf(AbstractHttpConfigurer::disable)
                 //Session :
-    //Login==>Serveur crée une session et la stocke en mémoire==>Navigateur reçoit un cookie
+                //Login==>Serveur crée une session et la stocke en mémoire==>Navigateur reçoit un cookie
                 //JWT(JSON Web Token)
-    //Login==>Serveur génère un token et l'envoie au client ==> Client stocke le token
+                //Login==>Serveur génère un token et l'envoie au client ==> Client stocke le token
                 // Autoriser les appels front (Angular) vers l'API
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeHttpRequests(auth -> auth
                         // Routes publiques — pas besoin de token
-                    .requestMatchers(
-                        "/api/auth/login",
-                        "/api/auth/register",
-                        "/api/auth/login-face",
-                        "/api/auth/register-face",
-                        "/api/auth/forgot-password",
-                        "/api/auth/reset-password"
-                    ).permitAll()
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/login-google",
+                                "/api/auth/register",
+                                "/api/auth/login-face",
+                                "/api/auth/register-face",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/categories",
+                                "/api/categories/**",
+                                "/api/logements",
+                                "/api/logements/public",
+                                "/api/logements/categorie/**",
+                                "/api/logements/{id}"
 
-                    // Static file uploads — publicly accessible
-                    .requestMatchers("/uploads/**").permitAll()
+                        ).permitAll()
 
-                    .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
-
+                        .requestMatchers(HttpMethod.GET, "/api/forums/**").permitAll()
+                        .requestMatchers("/api/forums/**").permitAll()
+                        .requestMatchers("/api/communities/**").permitAll()
+                        .requestMatchers("/api/comments/**").permitAll()
+                        .requestMatchers("/api/reactions/**").permitAll()
+                        .requestMatchers("/api/reviews/**").permitAll()
+                        .requestMatchers("/api/moderation/**").permitAll()
+                        .requestMatchers("/api/ai/**").permitAll()
+                        .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
+                        .requestMatchers("/api/logement-ai/**").permitAll()
                         // Routes admin uniquement
                         //Token ==> accès routes normales Mais : accès routes admin " YES "
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/deals/ai-generate").hasRole("ADMIN")
+                        .requestMatchers("/ws-transport/**").permitAll()
+                        .requestMatchers("/hypercloud/uploads/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
 
+
+                        // ✅ Catalogue événements public (sans login)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/events/published",
+                                "/api/events/published/*",
+                                "/api/events/type/**",
+                                "/api/events/city/**",
+                                "/api/events/category/**",
+                                "/api/events/weather/**",
+                                "/api/events/*/weather",
+                                "/api/categories",
+                                "/api/categories/**"
+                        ).permitAll()
                         // Toutes les autres routes -> token obligatoire
                         //Token ==> accès routes normales Mais : accès routes admin " NO "
                         .anyRequest().authenticated()
@@ -75,12 +111,12 @@ public class SecurityConfig {
 
                 // Activer une session serveur par utilisateur
                 .sessionManagement(session ->
-                    session
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                        .sessionFixation(sessionFixation -> sessionFixation.migrateSession())
-                        .maximumSessions(1)
-                        .maxSessionsPreventsLogin(false)
-                        .sessionRegistry(sessionRegistry()))
+                        session
+                                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                                .sessionFixation(sessionFixation -> sessionFixation.migrateSession())
+                                .maximumSessions(1)
+                                .maxSessionsPreventsLogin(false)
+                                .sessionRegistry(sessionRegistry()))
 
                 .authenticationProvider(authenticationProvider())
 
@@ -133,4 +169,5 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
+
 }

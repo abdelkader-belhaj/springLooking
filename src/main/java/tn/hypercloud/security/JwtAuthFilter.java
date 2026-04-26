@@ -37,6 +37,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+                 String requestPath = request.getRequestURI();
+        if (requestPath.startsWith("/uploads/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
                try {
             // 1. Lire le token depuis le header
             String jwt = parseJwt(request);

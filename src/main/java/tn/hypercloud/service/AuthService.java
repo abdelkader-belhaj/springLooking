@@ -23,6 +23,7 @@ import tn.hypercloud.entity.user.User;
 import tn.hypercloud.payload.request.FaceLoginRequest;
 import tn.hypercloud.payload.request.FaceRegisterRequest;
 import tn.hypercloud.payload.request.ForgotPasswordRequest;
+import tn.hypercloud.payload.request.GoogleLoginRequest;
 import tn.hypercloud.payload.request.LoginRequest;
 import tn.hypercloud.payload.request.RegisterRequest;
 import tn.hypercloud.payload.request.ResetPasswordRequest;
@@ -53,6 +54,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final FaceAiClientService faceAiClientService;
     private final TwoFactorService twoFactorService;
+    private final GoogleTokenVerifierService googleTokenVerifierService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -77,6 +79,7 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setLocalPasswordSet(true);
         user.setRole(request.getRole());
         user.setEnabled(!requiresAdminApproval(request.getRole()));
 
@@ -110,10 +113,10 @@ public class AuthService {
         //    Si incorrect -> leve une exception automatiquement
         try {
             authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                    request.getEmail(),
-                    request.getPassword()
-                )
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
             );
         } catch (DisabledException ex) {
             throw new DisabledException("Votre compte est en attente de validation par l administrateur");
@@ -139,6 +142,32 @@ public class AuthService {
         return response;
     }
 
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request, HttpServletRequest httpRequest) {
+        var payload = googleTokenVerifierService.verify(request.getIdToken());
+
+        String email = payload.getEmail();
+        if (email == null || email.isBlank()) {
+            throw new RuntimeException("Email Google introuvable dans le token");
+        }
+
+        String displayName = (String) payload.get("name");
+        User user = userRepository.findByEmail(email)
+                .orElseGet(() -> createGoogleUser(email, displayName));
+
+        if (!canUserLogin(user)) {
+            throw new DisabledException("Votre compte est en attente de validation par l administrateur");
+        }
+
+        String token = jwtUtils.generateToken(user);
+
+        AuthResponse response = new AuthResponse();
+        response.setToken(token);
+        response.setExpiresIn(jwtUtils.getExpirationMs());
+        response.setUser(UserResponse.fromEntity(user));
+        openSessionForUser(user, httpRequest);
+        return response;
+    }
+
     public AuthResponse registerWithFace(FaceRegisterRequest request, HttpServletRequest httpRequest) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -156,6 +185,7 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setLocalPasswordSet(true);
         user.setRole(request.getRole());
         user.setEnabled(!requiresAdminApproval(request.getRole()));
         user.setFaceEmbedding(embeddingJson);
@@ -310,6 +340,43 @@ public class AuthService {
     private Optional<User> findByLogin(String login) {
         return userRepository.findByEmail(login)
                 .or(() -> userRepository.findByUsername(login));
+    }
+
+    private User createGoogleUser(String email, String displayName) {
+        User user = new User();
+        user.setEmail(email);
+        user.setUsername(buildUniqueUsername(email, displayName));
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setRole(Role.CLIENT_TOURISTE);
+        user.setEnabled(true);
+        user.setLocalPasswordSet(false);
+        return userRepository.save(user);
+    }
+
+    private String buildUniqueUsername(String email, String displayName) {
+        String rawBase = (displayName != null && !displayName.isBlank()) ? displayName : email;
+        String base = rawBase
+                .toLowerCase()
+                .replaceAll("[^a-z0-9]", "")
+                .trim();
+
+        if (base.isBlank()) {
+            base = "googleuser";
+        }
+
+        if (base.length() > 20) {
+            base = base.substring(0, 20);
+        }
+
+        String candidate = base;
+        int attempt = 1;
+        while (userRepository.existsByUsername(candidate)) {
+            String suffix = String.valueOf(attempt++);
+            int maxBaseLength = Math.max(1, 20 - suffix.length());
+            candidate = base.substring(0, Math.min(base.length(), maxBaseLength)) + suffix;
+        }
+
+        return candidate;
     }
 
     private boolean requiresAdminApproval(Role role) {

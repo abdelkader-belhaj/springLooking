@@ -86,18 +86,18 @@ public class UserController {
                 ApiResponse.success("Mot de passe modifie", null));
     }
 
-        /**
-         * UPDATE FACE ID
-         * Postman : PATCH http://localhost:8080/api/users/1/face-id
-         * Body    : { "imageBase64": "data:image/jpeg;base64,..." }
-         */
-        @PatchMapping("/{id}/face-id")
-        public ResponseEntity<ApiResponse<UserResponse>> updateFaceId(
-                        @PathVariable Long id,
-                        @Valid @RequestBody UpdateFaceIdRequest request) {
-                return ResponseEntity.ok(
-                                ApiResponse.success("Face ID mis a jour", userService.updateFaceId(id, request)));
-        }
+    /**
+     * UPDATE FACE ID
+     * Postman : PATCH http://localhost:8080/api/users/1/face-id
+     * Body    : { "imageBase64": "data:image/jpeg;base64,..." }
+     */
+    @PatchMapping("/{id}/face-id")
+    public ResponseEntity<ApiResponse<UserResponse>> updateFaceId(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateFaceIdRequest request) {
+        return ResponseEntity.ok(
+                ApiResponse.success("Face ID mis a jour", userService.updateFaceId(id, request)));
+    }
 
     /**
      * CHANGE ROLE  (ADMIN seulement)

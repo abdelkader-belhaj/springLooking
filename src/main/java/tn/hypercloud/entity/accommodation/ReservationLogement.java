@@ -8,6 +8,7 @@ import tn.hypercloud.entity.user.User;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "reservation")
@@ -34,7 +35,6 @@ public class ReservationLogement {
     private LocalDate dateFin;
 
     @Column(name = "nb_personnes", nullable = false)
-    @Builder.Default
     private int nbPersonnes = 1;
 
     @Column(name = "prix_total", precision = 10, scale = 2)
@@ -42,15 +42,22 @@ public class ReservationLogement {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @Builder.Default
-    private StatutReservation statut = StatutReservation.en_attente;
+    private StatutReservation statut = StatutReservation.confirmee;
 
     @Column(name = "date_reservation", updatable = false)
     private LocalDateTime dateReservation;
 
+    @Column(name = "smart_lock_code")
+    private String smartLockCode;
+
+    @Column(name = "archived", nullable = false)
+    private boolean archived = false;
+
     @PrePersist
     protected void onCreate() {
-        dateReservation = LocalDateTime.now();
+        if (dateReservation == null) {
+            dateReservation = LocalDateTime.now(ZoneOffset.UTC);
+        }
     }
 
     public enum StatutReservation {

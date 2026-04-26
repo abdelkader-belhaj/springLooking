@@ -20,4 +20,6 @@ public class Societe {
 
     @Column(length = 100)
     private String pays;
+    @Column(name = "user_id", unique = true)
+    private Long userId;
 }

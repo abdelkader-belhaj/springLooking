@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import tn.hypercloud.dto.ecommerce.OrderDTO;
 import tn.hypercloud.dto.ecommerce.OrderStatsDTO;
 import tn.hypercloud.entity.user.User;
@@ -28,6 +29,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OrderController {
     private final OrderService orderService;
+    @Qualifier("ecommerceInvoiceService")
     private final InvoiceService invoiceService;
     private final UserRepository userRepository;
     private final PromocodeService promocodeService;

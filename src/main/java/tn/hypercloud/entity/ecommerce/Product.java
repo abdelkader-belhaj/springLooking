@@ -42,14 +42,12 @@ public class Product {
     private BigDecimal discountPrice;
 
     @Column(name = "stock_quantity", nullable = false)
-    @Builder.Default
     private int stockQuantity = 0;
 
     @Column(length = 500)
     private String image;
 
     @Column(name = "sales_count", nullable = false)
-    @Builder.Default
     private int salesCount = 0;
 
     /**

@@ -1,0 +1,29 @@
+package tn.hypercloud.service.transport;
+
+import org.springframework.transaction.annotation.Transactional;
+import tn.hypercloud.dto.transport.PaymentVerificationStatusDto;
+import tn.hypercloud.entity.transport.Course;
+import tn.hypercloud.entity.transport.DemandeCourse;
+import tn.hypercloud.entity.transport.Matching;
+import tn.hypercloud.entity.transport.enums.CourseStatus;
+
+import java.util.List;
+public interface ICourseService {
+    Course addCourse(Course course);
+    Course updateCourse(Course course);
+    void deleteCourse(Long id);
+    Course getCourseById(Long id);
+    List<Course> getAllCourses();
+    List<Course> getCoursesByStatut(CourseStatus statut);
+    List<Course> getCoursesByChauffeur(Long chauffeur);
+    Course updateStatut(Long id, CourseStatus statut);
+    Course startCourse(Long id);
+    Course completeCourse(Long id);
+    PaymentVerificationStatusDto confirmClientPayment(Long courseId, String paymentIntentId);
+    PaymentVerificationStatusDto verifyPaymentByDriver(Long courseId, String verificationCode);
+    PaymentVerificationStatusDto getPaymentVerificationStatus(Long courseId);
+    boolean isClientConfirmationReceived(Long courseId);
+    @Transactional
+    List<Matching> createProximityMatchings(DemandeCourse demande, double maxDistanceKm);
+    List<Course> getCoursesByClient(Long clientId);
+}

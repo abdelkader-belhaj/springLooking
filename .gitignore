@@ -45,3 +45,18 @@ cls
 ai-face-service/.venv/
 ### Uploaded files ###
 uploads/
+
+### Python virtualenv ###
+.venv/
+ai-face-service/.venv/
+
+/uploads
+
+*oft*
+### Secrets ###
+.env
+*.env
+application-local.properties
+run.ps1
+
+src/main/resources/application.properties
