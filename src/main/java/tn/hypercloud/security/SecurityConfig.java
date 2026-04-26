@@ -83,7 +83,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/moderation/**").permitAll()
                         .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers("/api/auth/2fa/**", "/api/auth/logout").authenticated()
-
+                        .requestMatchers("/api/logement-ai/**").permitAll()
                         // Routes admin uniquement
                         //Token ==> accès routes normales Mais : accès routes admin " YES "
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -92,6 +92,18 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
 
 
+                        // ✅ Catalogue événements public (sans login)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/events/published",
+                                "/api/events/published/*",
+                                "/api/events/type/**",
+                                "/api/events/city/**",
+                                "/api/events/category/**",
+                                "/api/events/weather/**",
+                                "/api/events/*/weather",
+                                "/api/categories",
+                                "/api/categories/**"
+                        ).permitAll()
                         // Toutes les autres routes -> token obligatoire
                         //Token ==> accès routes normales Mais : accès routes admin " NO "
                         .anyRequest().authenticated()

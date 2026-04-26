@@ -16,6 +16,13 @@ import java.time.LocalDateTime;
 @Builder
 public class EventActivity {
 
+    /**
+     * Délai minimum avant {@link #startDate} : un organisateur ne peut annuler un événement
+     * {@link EventStatus#PUBLISHED} au-delà de ce seuil. L'admin n'est pas soumis à cette limite.
+     * Constante côté module event (pas de configuration globale partagée).
+     */
+    public static final int ORGANIZER_CANCEL_MIN_HOURS_BEFORE_START = 48;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -50,7 +57,7 @@ public class EventActivity {
     private Double latitude;
     private Double longitude;
 
-    @Column(name = "image_url", length = 255)
+    @Column(name = "image_url", columnDefinition = "LONGTEXT")
     private String imageUrl;
 
     @Enumerated(EnumType.STRING)
@@ -67,6 +74,35 @@ public class EventActivity {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "moderated_at")
+    private LocalDateTime moderatedAt;
+
+    @Column(name = "moderated_by_email", length = 120)
+    private String moderatedByEmail;
+
+    @Column(name = "moderation_reason", columnDefinition = "TEXT")
+    private String moderationReason;
+
+    @Column(name = "cancellation_reason", columnDefinition = "TEXT")
+    private String cancellationReason;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "promo_type", nullable = false, length = 20)
+    private PromoType promoType = PromoType.NONE;
+
+    @Column(name = "promo_percent")
+    private Integer promoPercent;
+
+    @Column(name = "promo_code", length = 50)
+    private String promoCode;
+
+    @Column(name = "promo_start_date")
+    private LocalDateTime promoStartDate;
+
+    @Column(name = "promo_end_date")
+    private LocalDateTime promoEndDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
@@ -93,9 +129,24 @@ public class EventActivity {
     }
 
     public enum EventStatus {
+        // Event créé par l'organisateur, en attente de validation ADMIN
         DRAFT,
+
+        // Event validé par l'ADMIN, visible et réservable par les clients
         PUBLISHED,
-        CANCELLED,
-        COMPLETED
+
+        // Event refusé par l'ADMIN, non visible aux clients
+        REJECTED,
+
+        // Event annulé après publication,
+        // toutes les réservations annulées + remboursement automatique
+        CANCELLED
+    }
+
+    public enum PromoType {
+        NONE,
+        WEEKEND,
+        HOLIDAY,
+        CUSTOM
     }
 }
