@@ -10,7 +10,8 @@ import tn.hypercloud.service.event.EventCategoryService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/categories")
+@RequestMapping("/api/event-categories")
+
 @RequiredArgsConstructor
 @CrossOrigin(origins = "http://localhost:4200")
 public class EventCategoryController {
