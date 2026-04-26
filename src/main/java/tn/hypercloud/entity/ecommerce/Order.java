@@ -26,12 +26,10 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @Builder.Default
     private OrderStatus status = OrderStatus.pending;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false)
-    @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.pending;
 
     @Column(name = "payment_method", length = 50)
@@ -41,7 +39,6 @@ public class Order {
     private BigDecimal subtotal;
 
     @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
-    @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
     @ManyToOne(fetch = FetchType.LAZY)

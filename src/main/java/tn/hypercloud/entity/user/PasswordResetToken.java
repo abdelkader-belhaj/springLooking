@@ -56,3 +56,5 @@ public class PasswordResetToken {
         updatedAt = LocalDateTime.now();
     }
 }
+
+

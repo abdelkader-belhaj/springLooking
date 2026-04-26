@@ -23,8 +23,6 @@ public class RegisterRequest {
     @NotNull(message = "Role obligatoire")
     private Role role;
 
-    private String phone;
-
     public RegisterRequest() {}
 
     public RegisterRequest(String username, String email, String password, Role role) {
@@ -32,14 +30,6 @@ public class RegisterRequest {
         this.email = email;
         this.password = password;
         this.role = role;
-    }
-
-    public RegisterRequest(String username, String email, String password, Role role, String phone) {
-        this.username = username;
-        this.email = email;
-        this.password = password;
-        this.role = role;
-        this.phone = phone;
     }
 
     public String getUsername() {
@@ -72,13 +62,5 @@ public class RegisterRequest {
 
     public void setRole(Role role) {
         this.role = role;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
     }
 }

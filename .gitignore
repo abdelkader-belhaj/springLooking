@@ -32,8 +32,18 @@ build/
 ### VS Code ###
 .vscode/
 
+
+
+### Python virtualenv ###
+.venv/
+ai-face-service/.venv/
+
+/uploads
+*oft*
 ### Secrets ###
 .env
 *.env
 application-local.properties
+
 run.ps1
+

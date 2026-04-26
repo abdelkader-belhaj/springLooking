@@ -1,8 +1,7 @@
 package tn.hypercloud.service;
 
-
-
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,18 +22,15 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final FaceAiClientService faceAiClientService;
+    private final PasswordResetEmailService passwordResetEmailService;
     private final ObjectMapper objectMapper;
 
-    /**
-     * GET ALL — Liste tous les users
-     * Postman : GET /api/users
-     * Header  : Authorization: Bearer <token>
-     */
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll()
                 .stream()
@@ -42,10 +38,6 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * GET BY ID — Recuperer un user
-     * Postman : GET /api/users/1
-     */
     public UserResponse getUserById(Long id) {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
@@ -53,11 +45,6 @@ public class UserService {
         return UserResponse.fromEntity(user);
     }
 
-    /**
-     * UPDATE — Modifier un user
-     * Postman : PUT /api/users/1
-     * Body    : { "username": "nouveau_nom" }  <- seuls les champs envoyes changent
-     */
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
@@ -105,11 +92,6 @@ public class UserService {
         return UserResponse.fromEntity(userRepository.save(userToSave));
     }
 
-    /**
-     * UPDATE FACE ID — Re-enroler une empreinte faciale
-     * Postman : PATCH /api/users/1/face-id
-     * Body    : { "imageBase64": "data:image/jpeg;base64,..." }
-     */
     public UserResponse updateFaceId(Long id, UpdateFaceIdRequest request) {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
@@ -127,10 +109,6 @@ public class UserService {
         return UserResponse.fromEntity(userRepository.save(user));
     }
 
-    /**
-     * DELETE — Supprimer un user
-     * Postman : DELETE /api/users/1
-     */
     public void deleteUser(Long id) {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         if (!userRepository.existsById(safeId)) {
@@ -139,34 +117,33 @@ public class UserService {
         userRepository.deleteById(safeId);
     }
 
-    /**
-     * CHANGE PASSWORD — Changer le mot de passe
-     * Postman : PATCH /api/users/1/password
-     * Body    : { "oldPassword":"123456", "newPassword":"newpass", "confirmPassword":"newpass" }
-     */
     public void changePassword(Long id, ChangePasswordRequest request) {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
                 .orElseThrow(() -> new RuntimeException("User non trouve avec id: " + id));
 
-        // Verifier ancien mot de passe
-        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new RuntimeException("Ancien mot de passe incorrect");
+        String oldPassword = request.getOldPassword();
+        boolean oldPasswordProvided = oldPassword != null && !oldPassword.isBlank();
+        boolean oldPasswordRequired = user.isLocalPasswordSet() || oldPasswordProvided;
+
+        if (oldPasswordRequired) {
+            if (!oldPasswordProvided) {
+                throw new RuntimeException("Ancien mot de passe obligatoire");
+            }
+            if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+                throw new RuntimeException("Ancien mot de passe incorrect");
+            }
         }
 
-        // Verifier confirmation
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new RuntimeException("Les mots de passe ne correspondent pas");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setLocalPasswordSet(true);
         userRepository.save(user);
     }
 
-    /**
-     * CHANGE ROLE — Changer le role d'un user (ADMIN seulement)
-     * Postman : PATCH /api/users/1/role?role=HEBERGEUR
-     */
     public UserResponse changeRole(Long id, Role role) {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
@@ -175,22 +152,27 @@ public class UserService {
         return UserResponse.fromEntity(userRepository.save(user));
     }
 
-    /**
-     * TOGGLE ENABLED — Activer / desactiver un user
-     * Postman : PATCH /api/users/1/toggle
-     */
     public UserResponse toggleEnabled(Long id) {
         Long safeId = Objects.requireNonNull(id, "id must not be null");
         User user = userRepository.findById(safeId)
                 .orElseThrow(() -> new RuntimeException("User non trouve avec id: " + id));
-        user.setEnabled(!user.isEnabled());
-        return UserResponse.fromEntity(userRepository.save(user));
+
+        boolean wasEnabled = user.isEnabled();
+        user.setEnabled(!wasEnabled);
+        User savedUser = userRepository.save(user);
+
+        // Envoyer email seulement lors de l'acceptation admin (false -> true)
+        if (!wasEnabled && savedUser.isEnabled()) {
+            try {
+                passwordResetEmailService.sendAccountApprovedEmail(savedUser);
+            } catch (RuntimeException ex) {
+                log.warn("Compte active mais email d'activation non envoye pour userId={}", savedUser.getId(), ex);
+            }
+        }
+
+        return UserResponse.fromEntity(savedUser);
     }
 
-    /**
-     * GET BY ROLE — Filtrer par role
-     * Postman : GET /api/users/role/ADMIN
-     */
     public List<UserResponse> getUsersByRole(Role role) {
         return userRepository.findByRole(role)
                 .stream()

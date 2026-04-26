@@ -15,14 +15,14 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(
-    name = "payments",
-    indexes = {
-        @Index(name = "idx_order_id",                columnList = "order_id"),
-        @Index(name = "idx_stripe_payment_intent",   columnList = "stripe_payment_intent_id"),
-        @Index(name = "idx_status",                  columnList = "status"),
-        @Index(name = "idx_created_at",              columnList = "created_at"),
-        @Index(name = "idx_paid_at",                 columnList = "paid_at")
-    }
+        name = "payments",
+        indexes = {
+                @Index(name = "idx_order_id",                columnList = "order_id"),
+                @Index(name = "idx_stripe_payment_intent",   columnList = "stripe_payment_intent_id"),
+                @Index(name = "idx_status",                  columnList = "status"),
+                @Index(name = "idx_created_at",              columnList = "created_at"),
+                @Index(name = "idx_paid_at",                 columnList = "paid_at")
+        }
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Payment {
@@ -47,7 +47,6 @@ public class Payment {
     /** Statut du paiement */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @Builder.Default
     private PaymentStatus status = PaymentStatus.pending;
 
     /** Horodatage de création (initiation du paiement) */

@@ -132,16 +132,16 @@ public class EventTicketService {
 
         if (ticket.isUsed()) {
             String smartMessage = scanAiNarrationService.buildScanMessage(
-                new EventScanAiNarrationService.ScanNarrationContext(
-                    false,
-                    true,
-                    reservation.getUser() != null ? reservation.getUser().getFullName() : "Client",
-                    reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Événement",
-                    ticket.getTicketCode(),
-                    ticket.getUsedBy(),
-                    LocalDateTime.now(),
-                    ticket.getUsedAt()
-                )
+                    new EventScanAiNarrationService.ScanNarrationContext(
+                            false,
+                            true,
+                            reservation.getUser() != null ? reservation.getUser().getFullName() : "Client",
+                            reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Événement",
+                            ticket.getTicketCode(),
+                            ticket.getUsedBy(),
+                            LocalDateTime.now(),
+                            ticket.getUsedAt()
+                    )
             );
             return Map.of("valid", false, "message", smartMessage);
         }
@@ -156,21 +156,21 @@ public class EventTicketService {
         syncReservationQrState(reservation.getId());
 
         String smartMessage = scanAiNarrationService.buildScanMessage(
-            new EventScanAiNarrationService.ScanNarrationContext(
-                true,
-                false,
-                reservation.getUser() != null ? reservation.getUser().getFullName() : "Client",
-                reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Événement",
-                ticket.getTicketCode(),
-                scannerEmail,
-                now,
-                now
-            )
+                new EventScanAiNarrationService.ScanNarrationContext(
+                        true,
+                        false,
+                        reservation.getUser() != null ? reservation.getUser().getFullName() : "Client",
+                        reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Événement",
+                        ticket.getTicketCode(),
+                        scannerEmail,
+                        now,
+                        now
+                )
         );
 
         return Map.of(
                 "valid", true,
-            "message", smartMessage,
+                "message", smartMessage,
                 "ticketCode", ticket.getTicketCode(),
                 "ticketNumber", ticket.getTicketNumber(),
                 "reservationId", reservation.getId()
@@ -224,3 +224,4 @@ public class EventTicketService {
                 .build();
     }
 }
+

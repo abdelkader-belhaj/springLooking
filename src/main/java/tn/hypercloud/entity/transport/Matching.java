@@ -1,5 +1,7 @@
 package tn.hypercloud.entity.transport;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tn.hypercloud.entity.transport.enums.MatchingStatut;
 import jakarta.persistence.*;
 import lombok.*;
@@ -7,7 +9,12 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "matchings")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Matching {
 
     @Id
@@ -17,10 +24,12 @@ public class Matching {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_demande", nullable = false)
+    @JsonIgnore
     private DemandeCourse demande;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_chauffeur", nullable = false)
+    @JsonIgnore
     private Chauffeur chauffeur;
 
     @Enumerated(EnumType.STRING)
@@ -30,6 +39,7 @@ public class Matching {
 
     // Lien inverse vers Course — traçabilité
     @OneToOne(mappedBy = "matching", fetch = FetchType.LAZY)
+    @JsonIgnore
     private Course course;
 
     @Column(updatable = false)
@@ -48,4 +58,3 @@ public class Matching {
         dateModification = LocalDateTime.now();
     }
 }
-

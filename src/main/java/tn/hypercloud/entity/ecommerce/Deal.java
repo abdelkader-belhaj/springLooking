@@ -51,6 +51,7 @@ public class Deal {
 
     @Column(name = "favorites_count", nullable = false)
     @Builder.Default
+
     private int favoritesCount = 0;
 
     public enum Region       { north, south, center, east_coast, sahara }

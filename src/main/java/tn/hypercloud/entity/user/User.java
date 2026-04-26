@@ -13,13 +13,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
-
 @Entity
 @Table(name = "user")
-// Lombok: genere automatiquement getters/setters.
-// @NoArgsConstructor: constructeur vide (utile pour JPA).
-// @AllArgsConstructor: constructeur avec tous les champs.
-// @Builder: creation d'objet lisible via pattern builder.
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class User implements UserDetails {
 
@@ -40,21 +35,16 @@ public class User implements UserDetails {
     @Builder.Default
     private boolean enabled = true;
 
-
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 50)
     private Role role;
-
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-
-
-    // Champs optionnels pour eCommerce (artisan)
     @Column(length = 20)
     private String phone;
 
@@ -63,6 +53,9 @@ public class User implements UserDetails {
 
     @Column(name = "profile_image", length = 500)
     private String profileImage;
+
+    @Column(name = "google_sub", unique = true, length = 100)
+    private String googleSub;
 
     @Column(name = "face_embedding", columnDefinition = "LONGTEXT")
     private String faceEmbedding;
@@ -77,8 +70,12 @@ public class User implements UserDetails {
     private Double faceThreshold;
 
     @Builder.Default
-    @Column(name = "two_factor_enabled")
-    private boolean twoFactorEnabled = false;
+    @Column(name = "two_factor_enabled", columnDefinition = "boolean default false")
+    private Boolean twoFactorEnabled = false;
+
+    public boolean isTwoFactorEnabled() {
+        return Boolean.TRUE.equals(this.twoFactorEnabled);
+    }
 
     @Column(name = "two_factor_secret", length = 255)
     private String twoFactorSecret;
@@ -86,10 +83,13 @@ public class User implements UserDetails {
     @Column(name = "two_factor_activated_at")
     private LocalDateTime twoFactorActivatedAt;
 
+    @Builder.Default
+    @Column(name = "local_password_set", columnDefinition = "boolean default false")
+    private Boolean localPasswordSet = false;
 
-
-
-
+    public boolean isLocalPasswordSet() {
+        return Boolean.TRUE.equals(this.localPasswordSet);
+    }
 
     public Role getRole() {
         return role;
@@ -177,13 +177,9 @@ public class User implements UserDetails {
     @Override
     public boolean isCredentialsNonExpired() { return true; }
 
-// ============================================
-//  Cycle de vie JPA = Java Persistence API.
-//C la norme Java pour mapper les classes Java vers les tables SQL.
-// “cycle JPA” = comment l’entité naît, est gérée, se détache,
-// puis se supprime, avec des hooks automatiques comme
-// // @PrePersist / @PreUpdate.
-// ============================================
+    // ============================================
+    //  Cycle de vie JPA
+    // ============================================
 
     @PrePersist
     protected void onCreate() {

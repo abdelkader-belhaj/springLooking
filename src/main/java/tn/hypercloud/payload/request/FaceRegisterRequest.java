@@ -23,20 +23,17 @@ public class FaceRegisterRequest {
     @NotBlank(message = "Image base64 obligatoire")
     private String imageBase64;
 
-    private String phone;
-
     @NotNull(message = "Role obligatoire")
     private Role role;
 
     public FaceRegisterRequest() {
     }
 
-    public FaceRegisterRequest(String username, String email, String password, String imageBase64, String phone, Role role) {
+    public FaceRegisterRequest(String username, String email, String password, String imageBase64, Role role) {
         this.username = username;
         this.email = email;
         this.password = password;
         this.imageBase64 = imageBase64;
-        this.phone = phone;
         this.role = role;
     }
 
@@ -70,14 +67,6 @@ public class FaceRegisterRequest {
 
     public void setImageBase64(String imageBase64) {
         this.imageBase64 = imageBase64;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
     }
 
     public Role getRole() {

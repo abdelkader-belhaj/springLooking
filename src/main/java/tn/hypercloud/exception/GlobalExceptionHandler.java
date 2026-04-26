@@ -31,7 +31,7 @@ public class GlobalExceptionHandler {
                 .reduce((left, right) -> left + " | " + right)
                 .orElse("Erreur de validation");
         return ResponseEntity.badRequest().body(
-            new ApiResponse<>(false, detail, errors, LocalDateTime.now())
+                new ApiResponse<>(false, detail, errors, LocalDateTime.now())
         );
     }
 

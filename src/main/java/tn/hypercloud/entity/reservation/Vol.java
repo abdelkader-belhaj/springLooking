@@ -2,6 +2,8 @@ package tn.hypercloud.entity.reservation;
 
 import jakarta.persistence.*;
 import lombok.*;
+import tn.hypercloud.entity.user.User;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -16,8 +18,8 @@ public class Vol {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_societe", nullable = false)
-    private Societe societe;
+    @JoinColumn(name = "id_user", nullable = false)
+    private User user;  // remplace Societe societe
 
     @Column(nullable = false, length = 20)
     private String numero;
@@ -38,6 +40,16 @@ public class Vol {
     private BigDecimal prix;
 
     @Column(nullable = false)
-    @Builder.Default
     private int places = 0;
+
+    @OneToMany(mappedBy = "vol", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<Escale> escales;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_offre")
+    private Offre offre;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer retard = 0;
 }
