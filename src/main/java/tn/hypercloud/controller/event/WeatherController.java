@@ -60,6 +60,43 @@ public class WeatherController {
         return ResponseEntity.ok(weatherService.getWeatherByCity(city));
     }
 
+    @GetMapping("/weather/forecast/by-coords")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Map<String, Object>> getWeatherForecastByCoords(
+            @RequestParam Double lat,
+            @RequestParam Double lng,
+            @RequestParam String date) {
+        try {
+            WeatherService.WeatherData weather = weatherService.getWeather(lat, lng);
+            return ResponseEntity.ok(Map.of(
+                "temperature", weather.getTemperature(),
+                "feelsLike", weather.getFeelsLike(),
+                "humidity", weather.getHumidity(),
+                "description", weather.getDescription(),
+                "icon", weather.getIcon(),
+                "windSpeed", weather.getWindSpeed(),
+                "city", weather.getCity(),
+                "country", weather.getCountry(),
+                "retrievedAt", weather.getRetrievedAt(),
+                "forecastTime", date
+            ));
+        } catch (Exception e) {
+            // Return default weather on error
+            return ResponseEntity.ok(Map.of(
+                "temperature", java.math.BigDecimal.valueOf(25),
+                "feelsLike", java.math.BigDecimal.valueOf(24),
+                "humidity", 60,
+                "description", "Informations meteo non disponibles",
+                "icon", "01d",
+                "windSpeed", java.math.BigDecimal.ZERO,
+                "city", "Indisponible",
+                "country", "",
+                "retrievedAt", java.time.LocalDateTime.now(),
+                "forecastTime", date
+            ));
+        }
+    }
+
     @GetMapping("/weather/batch")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<Map<String, Object>>> getWeatherForEvents(

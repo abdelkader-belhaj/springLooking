@@ -14,7 +14,7 @@ import tn.hypercloud.entity.reservation.dto.QrCodeVolResponse;
 import tn.hypercloud.entity.reservation.service.QrCodeService;
 import tn.hypercloud.repository.reservation.ReservationVolRepository;
 
-@CrossOrigin(origins = {"http://localhost:4200", "http://192.168.1.20:4200"})
+@CrossOrigin(origins = {"http://localhost:4200", "http://192.168.1.13:4200"})
 @RestController
 @RequestMapping("/api/qrcodes")
 @RequiredArgsConstructor

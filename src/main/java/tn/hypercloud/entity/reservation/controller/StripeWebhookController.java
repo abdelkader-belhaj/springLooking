@@ -16,7 +16,7 @@ import tn.hypercloud.repository.reservation.PaiementVolRepository;
 @RequiredArgsConstructor
 public class StripeWebhookController {
 
-    @Value("${stripe.webhook-secret}")
+    @Value("${reservation.stripe.webhook-secret}")
     private String webhookSecret;
 
     private final PaiementVolRepository paiementRepo;

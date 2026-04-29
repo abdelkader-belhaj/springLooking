@@ -15,7 +15,11 @@ def clean(text):
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
-    data = request.get_json()
+    data = request.get_json(force=True, silent=True)
+
+    if not data:
+        return jsonify({"error": "JSON invalide ou vide"}), 400
+
     text = data.get("text", "").strip()
 
     if not text:
@@ -27,7 +31,6 @@ def analyze():
     neg_score = proba[0]
     pos_score = proba[1]
 
-    # Seuil adaptatif
     diff = abs(pos_score - neg_score)
 
     if diff < 0.15:

@@ -11,24 +11,27 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import tn.hypercloud.dto.event.EventActivityRequest;
+import lombok.RequiredArgsConstructor;
+
 
 import java.util.List;
 import java.util.Map;
 
+@RequiredArgsConstructor
 @Service
 @Slf4j
 public class EventModerationAiService {
 
-    @Value("${moderation.ai.api.url:${groq.api.url:https://api.groq.com/openai/v1/chat/completions}}")
+    @Value("${moderation.ai.api.url:${farah.groq.api.url:https://api.groq.com/openai/v1/chat/completions}}")
     private String moderationApiUrl;
 
-    @Value("${moderation.ai.api.key:${groq.api.key:}}")
+    @Value("${moderation.ai.api.key:${farah.groq.api.key:}}")
     private String moderationApiKey;
 
-    @Value("${moderation.ai.model:${groq.model:qwen3-32b}}")
+    @Value("${moderation.ai.model:${farah.groq.model:qwen3-32b}}")
     private String moderationModel;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ModerationDecision moderate(EventActivityRequest request) {

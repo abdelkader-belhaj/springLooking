@@ -66,7 +66,7 @@ public class QrCodeService {
     // ============================================================
     private String construireContenu(ReservationVol res) {
         // Le QR code pointe vers une page Angular avec la référence
-        return "http://192.168.1.20:4200/billet/" + res.getReference();
+        return "http://192.168.1.13:4200/billet/" + res.getReference();
     }
 
     // ============================================================

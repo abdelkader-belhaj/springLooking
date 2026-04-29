@@ -2,6 +2,9 @@ package tn.hypercloud.entity.reservation.service;
 
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -13,10 +16,16 @@ import tn.hypercloud.entity.reservation.Vol;
 import java.time.format.DateTimeFormatter;
 
 @Service
-@RequiredArgsConstructor
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    
+    @Value("${app.mail.from-address}")
+    private String fromAddress;
+
+    public EmailService(@Qualifier("gmailMailSender") JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
 
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -32,7 +41,7 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom("zied8758@gmail.com");
+            helper.setFrom(fromAddress);
             helper.setTo(res.getTouriste().getEmail());
             helper.setSubject("✅ Confirmation de paiement – " + res.getReference());
 
@@ -196,7 +205,7 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom("zied8758@gmail.com");
+            helper.setFrom(fromAddress);
             helper.setTo(res.getTouriste().getEmail());
             helper.setSubject("❌ Annulation & Remboursement – " + res.getReference());
 
@@ -314,7 +323,7 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom("zied8758@gmail.com");
+            helper.setFrom(fromAddress);
             helper.setTo(res.getTouriste().getEmail());
             helper.setSubject("⚠️ Notification de retard – " + res.getReference());
 
@@ -411,7 +420,7 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom("zied8758@gmail.com");
+            helper.setFrom(fromAddress);
             helper.setTo(reclamation.getTouriste().getEmail());
             helper.setSubject("📩 Réponse à votre réclamation");
 

@@ -32,13 +32,13 @@ public class EventAiAssistantService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    @Value("${groq.api.url:https://api.groq.com/openai/v1/chat/completions}")
+    @Value("${farah.groq.api.url:https://api.groq.com/openai/v1/chat/completions}")
     private String groqApiUrl;
 
-    @Value("${groq.api.key:}")
+    @Value("${farah.groq.api.key:}")
     private String groqApiKey;
 
-    @Value("${groq.model:llama-3.3-70b-versatile}")
+    @Value("${farah.groq.model:llama-3.3-70b-versatile}")
     private String groqModel;
 
     public EventAiPriceSuggestionResponse suggestPrice(EventAiPriceSuggestionRequest request) {

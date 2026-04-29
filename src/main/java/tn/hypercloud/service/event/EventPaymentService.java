@@ -50,13 +50,13 @@ public class EventPaymentService {
     private final EventEmailService emailService;
         private final EventTicketService ticketService;
 
-        private final RestTemplate restTemplate = new RestTemplate();
+        private final RestTemplate restTemplate;
         private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${app.payment.mock:false}")
     private boolean mockPayment;
 
-        @Value("${app.payment.stripe.secret-key:}")
+        @Value("${event.stripe.secret-key:}")
         private String stripeSecretKey;
 
         @Value("${app.payment.stripe.exchange-rate-tnd-to-eur:0.30}")
@@ -346,58 +346,76 @@ public class EventPaymentService {
                 .build();
     }
 
-        private StripeSessionPayload createStripeSession(EventReservation reservation, BigDecimal payableAmount, String checkoutCurrency) {
-                if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
-                        throw new RuntimeException("Stripe is not configured");
-                }
+       private StripeSessionPayload createStripeSession(EventReservation reservation, BigDecimal payableAmount, String checkoutCurrency) {
+    if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
+        throw new RuntimeException("Stripe is not configured");
+    }
 
-                String successUrl = "http://localhost:4200"
-                                + "/mes-reservations-event?reservationId=" + reservation.getId()
-                                + "&stripeSessionId={CHECKOUT_SESSION_ID}";
-                String cancelUrl = "http://localhost:4200"
-                                + "/mes-reservations-event?reservationId=" + reservation.getId();
+    String successUrl = "http://localhost:4200/payment/" + reservation.getId()
+            + "?stripeSessionId={CHECKOUT_SESSION_ID}";
+    String cancelUrl = "http://localhost:4200/payment/" + reservation.getId();
 
-                HttpHeaders headers = new HttpHeaders();
-                headers.setBasicAuth(stripeSecretKey, "");
-                headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+    String eventTitle = reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Event ticket";
+    String eventId = reservation.getEvent() != null && reservation.getEvent().getId() != null
+            ? String.valueOf(reservation.getEvent().getId()) : "";
+    String unitAmount = payableAmount
+            .multiply(BigDecimal.valueOf(100))
+            .setScale(0, RoundingMode.HALF_UP)
+            .toPlainString();
 
-                MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-                body.add("mode", "payment");
-                body.add("success_url", successUrl);
-                body.add("cancel_url", cancelUrl);
-                body.add("client_reference_id", String.valueOf(reservation.getId()));
-                body.add("payment_method_types[]", "card");
-                body.add("metadata[reservationId]", String.valueOf(reservation.getId()));
-                body.add("metadata[eventId]", reservation.getEvent() != null && reservation.getEvent().getId() != null
-                                ? String.valueOf(reservation.getEvent().getId()) : "");
-                body.add("line_items[0][quantity]", "1");
-                body.add("line_items[0][price_data][currency]", checkoutCurrency);
-                body.add("line_items[0][price_data][unit_amount]", payableAmount.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).toPlainString());
-                body.add("line_items[0][price_data][product_data][name]", reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Event ticket");
-                body.add("line_items[0][price_data][product_data][description]", buildStripeDescription(reservation));
+    // Build raw body manually to prevent {} from being URL-encoded
+    String rawBody = "mode=payment"
+            + "&success_url=" + encodeKeepBraces(successUrl)   // ← keeps {CHECKOUT_SESSION_ID} intact
+            + "&cancel_url=" + encode(cancelUrl)
+            + "&client_reference_id=" + reservation.getId()
+            + "&payment_method_types%5B0%5D=card"
+            + "&metadata%5BreservationId%5D=" + reservation.getId()
+            + "&metadata%5BeventId%5D=" + encode(eventId)
+            + "&line_items%5B0%5D%5Bquantity%5D=1"
+            + "&line_items%5B0%5D%5Bprice_data%5D%5Bcurrency%5D=" + encode(checkoutCurrency)
+            + "&line_items%5B0%5D%5Bprice_data%5D%5Bunit_amount%5D=" + unitAmount
+            + "&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bname%5D=" + encode(eventTitle)
+            + "&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bdescription%5D=" + encode(buildStripeDescription(reservation));
 
-                ResponseEntity<String> response = restTemplate.postForEntity(
-                                STRIPE_CHECKOUT_API,
-                                new HttpEntity<>(body, headers),
-                                String.class);
+    HttpHeaders headers = new HttpHeaders();
+    headers.setBasicAuth(stripeSecretKey, "");
+    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-                if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                        throw new RuntimeException("Stripe checkout session creation failed");
-                }
+    ResponseEntity<String> response = restTemplate.postForEntity(
+            STRIPE_CHECKOUT_API,
+            new HttpEntity<>(rawBody, headers),
+            String.class);
 
-                try {
-                        JsonNode root = objectMapper.readTree(response.getBody());
-                        String sessionId = root.path("id").asText("");
-                        String checkoutUrl = root.path("url").asText("");
-                        if (sessionId.isBlank() || checkoutUrl.isBlank()) {
-                                throw new RuntimeException("Stripe response missing url");
-                        }
-                        return new StripeSessionPayload(sessionId, checkoutUrl);
-                } catch (Exception ex) {
-                        throw new RuntimeException("Stripe session parsing failed: " + ex.getMessage(), ex);
-                }
+    if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+        throw new RuntimeException("Stripe checkout session creation failed");
+    }
+
+    try {
+        JsonNode root = objectMapper.readTree(response.getBody());
+        String sessionId = root.path("id").asText("");
+        String checkoutUrl = root.path("url").asText("");
+        if (sessionId.isBlank() || checkoutUrl.isBlank()) {
+            throw new RuntimeException("Stripe response missing url");
         }
+        return new StripeSessionPayload(sessionId, checkoutUrl);
+    } catch (Exception ex) {
+        throw new RuntimeException("Stripe session parsing failed: " + ex.getMessage(), ex);
+    }
+}
 
+// Encodes normally
+private String encode(String value) {
+    if (value == null) return "";
+    return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+}
+
+// Encodes but restores {} so Stripe recognizes {CHECKOUT_SESSION_ID}
+private String encodeKeepBraces(String value) {
+    if (value == null) return "";
+    return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8)
+            .replace("%7B", "{")
+            .replace("%7D", "}");
+}
         private StripeSessionStatus fetchStripeSession(String sessionId) {
                 if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
                         throw new RuntimeException("Stripe is not configured");

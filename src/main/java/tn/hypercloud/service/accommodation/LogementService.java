@@ -23,7 +23,6 @@ import tn.hypercloud.repository.accommodation.ReservationLogementRepository;
 import tn.hypercloud.repository.user.NotificationRepository;
 import tn.hypercloud.repository.user.UserRepository;
 
-import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Comparator;
 import java.time.LocalDate;
@@ -38,6 +37,7 @@ public class LogementService {
     private final UserRepository userRepo;
     private final ReservationLogementRepository reservationRepo;
     private final NotificationRepository notificationRepo;
+    private final GeolocationService geoService;
 
     // CREATE LOGEMENT
     public LogementResponse create(LogementRequest req) {
@@ -49,6 +49,29 @@ public class LogementService {
                         new RuntimeException(
                                 "Catégorie introuvable : " + req.getIdCategorie()));
 
+        // 🌍 REVERSE GEOCODING: Déterminer adresse/ville depuis lat/lon si fournies
+        String finalAdresse = req.getAdresse();
+        String finalVille = req.getVille();
+        
+        if (req.getLatitude() != null && req.getLongitude() != null) {
+            java.util.Map<String, String> geoResult = geoService.reverseGeocode(
+                req.getLatitude(), 
+                req.getLongitude()
+            );
+            
+            // Remplir adresse si elle manque
+            if ((finalAdresse == null || finalAdresse.trim().isEmpty()) && 
+                !geoResult.get("address").isEmpty()) {
+                finalAdresse = geoResult.get("address");
+            }
+            
+            // Remplir ville si elle manque
+            if ((finalVille == null || finalVille.trim().isEmpty()) && 
+                !geoResult.get("city").isEmpty()) {
+                finalVille = geoResult.get("city");
+            }
+        }
+
         Logement logement = Logement.builder()
                 .categorie(categorie)
                 .hebergeur(currentUser)
@@ -56,8 +79,8 @@ public class LogementService {
                 .description(req.getDescription())
                 .imageUrl(req.getImageUrl())
                 .videoUrl(req.getVideoUrl())
-                .adresse(req.getAdresse())
-                .ville(req.getVille())
+                .adresse(finalAdresse)
+                .ville(finalVille)
                 .prixNuit(req.getPrixNuit())
                 .capacite(req.getCapacite())
                 .disponible(req.isDisponible())
@@ -147,14 +170,12 @@ public class LogementService {
 
     // GET LOGEMENTS BY CATEGORIE
     public List<LogementResponse> getByCategorie(Integer idCategorie) {
-        Categorie categorie = catRepo.findById(idCategorie).orElse(null);
-        if (categorie == null) {
-            return List.of();
-        }
+        Categorie categorie = catRepo.findById(idCategorie)
+                .orElseThrow(() -> new RuntimeException("Catégorie introuvable : " + idCategorie));
         User currentUser = getCurrentUserOrNull();
 
         if (!categorie.isStatut() && (currentUser == null || currentUser.getRole() == Role.CLIENT_TOURISTE)) {
-            return List.of();
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cette catégorie est en maintenance. Coming soon.");
         }
 
         return logRepo.findByCategorieIdCategorie(idCategorie)
@@ -181,12 +202,35 @@ public class LogementService {
                         new RuntimeException(
                                 "Catégorie introuvable : " + req.getIdCategorie()));
 
+        // 🌍 REVERSE GEOCODING: Déterminer adresse/ville depuis lat/lon si fournies
+        String finalAdresse = req.getAdresse();
+        String finalVille = req.getVille();
+        
+        if (req.getLatitude() != null && req.getLongitude() != null) {
+            java.util.Map<String, String> geoResult = geoService.reverseGeocode(
+                req.getLatitude(), 
+                req.getLongitude()
+            );
+            
+            // Remplir adresse si elle manque
+            if ((finalAdresse == null || finalAdresse.trim().isEmpty()) && 
+                !geoResult.get("address").isEmpty()) {
+                finalAdresse = geoResult.get("address");
+            }
+            
+            // Remplir ville si elle manque
+            if ((finalVille == null || finalVille.trim().isEmpty()) && 
+                !geoResult.get("city").isEmpty()) {
+                finalVille = geoResult.get("city");
+            }
+        }
+
         logement.setCategorie(categorie);
         logement.setNom(req.getNom());
         logement.setDescription(req.getDescription());
         logement.setVideoUrl(req.getVideoUrl());
-        logement.setAdresse(req.getAdresse());
-        logement.setVille(req.getVille());
+        logement.setAdresse(finalAdresse);
+        logement.setVille(finalVille);
         logement.setPrixNuit(req.getPrixNuit());
         logement.setCapacite(req.getCapacite());
         logement.setDisponible(req.isDisponible());
@@ -207,7 +251,6 @@ public class LogementService {
     }
 
     // DELETE LOGEMENT
-    @Transactional
     public void delete(Integer id) {
 
         User currentUser = getCurrentUser();
@@ -218,12 +261,6 @@ public class LogementService {
 
             throw new RuntimeException(
                     "Accès refusé : ce logement ne vous appartient pas");
-        }
-
-        // Supprimer toutes les réservations liées avant de supprimer le logement
-        List<ReservationLogement> reservations = reservationRepo.findByLogementIdLogement(id);
-        if (!reservations.isEmpty()) {
-            reservationRepo.deleteAll(reservations);
         }
 
         logRepo.delete(logement);
@@ -284,10 +321,10 @@ public class LogementService {
 
         return LogementResponse.builder()
                 .idLogement(logement.getIdLogement())
-                .idCategorie(logement.getCategorie() != null ? logement.getCategorie().getIdCategorie() : null)
-                .nomCategorie(logement.getCategorie() != null ? logement.getCategorie().getNomCategorie() : null)
-                .idHebergeur(logement.getHebergeur() != null ? logement.getHebergeur().getId() : null)
-                .nomHebergeur(logement.getHebergeur() != null ? logement.getHebergeur().getUsername() : null)
+                .idCategorie(logement.getCategorie().getIdCategorie())
+                .nomCategorie(logement.getCategorie().getNomCategorie())
+                .idHebergeur(logement.getHebergeur().getId())
+                .nomHebergeur(logement.getHebergeur().getUsername())
                 .nom(logement.getNom())
                 .description(logement.getDescription())
                 .imageUrl(logement.getImageUrl())

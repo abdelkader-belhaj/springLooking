@@ -2,6 +2,7 @@ package tn.hypercloud.service.event;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -17,21 +18,22 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class EventScanAiNarrationService {
 
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
 
-    @Value("${moderation.ai.api.url:${groq.api.url:https://api.groq.com/openai/v1/chat/completions}}")
+    @Value("${moderation.ai.api.url:${farah.groq.api.url:https://api.groq.com/openai/v1/chat/completions}}")
     private String apiUrl;
 
-    @Value("${moderation.ai.api.key:${groq.api.key:}}")
+    @Value("${moderation.ai.api.key:${farah.groq.api.key:}}")
     private String apiKey;
 
-    @Value("${moderation.ai.model:qwen3-32b}")
+    @Value("${moderation.ai.model:${farah.groq.model:qwen3-32b}}")
     private String model;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String buildScanMessage(ScanNarrationContext ctx) {

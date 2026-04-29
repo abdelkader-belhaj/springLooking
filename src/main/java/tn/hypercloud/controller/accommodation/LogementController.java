@@ -10,8 +10,10 @@ import tn.hypercloud.payload.response.LogementResponse;
 import tn.hypercloud.payload.response.RecommendationResponse;
 import tn.hypercloud.service.accommodation.LogementService;
 import tn.hypercloud.service.accommodation.RecommendationServicee;
+import tn.hypercloud.service.accommodation.GeolocationService;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/logements")
@@ -20,6 +22,7 @@ public class LogementController {
 
     private final LogementService service;
     private final RecommendationServicee recommendationService;
+    private final GeolocationService geolocationService;
 
     // CREATE LOGEMENT
     @PostMapping
@@ -76,6 +79,17 @@ public class LogementController {
             @RequestBody LogementRequest req) {
 
         return ResponseEntity.ok(service.update(id, req));
+    }
+
+    // REVERSE GEOCODING — Convertit lat/lon → ville/adresse
+    // Public pour que le frontend puisse l'appeler depuis n'importe quel pays
+    @GetMapping("/reverse-geocode")
+    public ResponseEntity<Map<String, String>> reverseGeocode(
+            @RequestParam Double latitude,
+            @RequestParam Double longitude) {
+
+        Map<String, String> result = geolocationService.reverseGeocode(latitude, longitude);
+        return ResponseEntity.ok(result);
     }
 
     // DELETE LOGEMENT

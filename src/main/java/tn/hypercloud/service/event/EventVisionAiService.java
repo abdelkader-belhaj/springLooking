@@ -44,13 +44,13 @@ public class EventVisionAiService {
     @Value("${vision.ai.provider:groq}")
     private String visionProvider;
 
-    @Value("${vision.ai.api.key:}")
+    @Value("${vision.ai.api.key:${farah.groq.api.key:}}")
     private String visionApiKey;
 
-    @Value("${vision.ai.api.url:https://api.groq.com/openai/v1/chat/completions}")
+    @Value("${vision.ai.api.url:${farah.groq.api.url:https://api.groq.com/openai/v1/chat/completions}}")
     private String visionApiUrl;
 
-    @Value("${vision.ai.model:llama-3.2-11b-vision-preview}")
+    @Value("${vision.ai.model:${farah.groq.model:llama-3.2-11b-vision-preview}}")
     private String visionModel;
 
     public VisionAnalysisResult analyzeTicketImage(String imageBase64, EventReservation reservation) {
