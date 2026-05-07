@@ -1,66 +1,41 @@
 package tn.hypercloud.service.event;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.hypercloud.dto.event.EventPaymentRequest;
 import tn.hypercloud.dto.event.EventPaymentResponse;
-import tn.hypercloud.dto.event.StripeCheckoutSessionRequest;
-import tn.hypercloud.dto.event.StripeCheckoutSessionResponse;
-import tn.hypercloud.dto.event.StripeConfirmRequest;
+import tn.hypercloud.entity.event.EventActivity;
 import tn.hypercloud.entity.event.EventPayment;
 import tn.hypercloud.entity.event.EventReservation;
-import tn.hypercloud.repository.event.EventPaymentRepository;
-import tn.hypercloud.repository.event.EventActivityRepository;
-import tn.hypercloud.repository.event.EventReservationRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
-import tn.hypercloud.entity.event.EventActivity;
-import java.time.LocalDateTime;
-import java.math.RoundingMode;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import lombok.extern.slf4j.Slf4j;
 import tn.hypercloud.entity.user.User;
+import tn.hypercloud.repository.event.EventActivityRepository;
+import tn.hypercloud.repository.event.EventPaymentRepository;
+import tn.hypercloud.repository.event.EventReservationRepository;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
-@Slf4j  // ← Ajoute @Slf4j ici
+@Slf4j
 public class EventPaymentService {
-
-        private static final String STRIPE_CHECKOUT_API = "https://api.stripe.com/v1/checkout/sessions";
-        private static final String STRIPE_SESSION_API = "https://api.stripe.com/v1/checkout/sessions/";
 
     private final EventPaymentRepository repository;
     private final EventReservationRepository reservationRepository;
     private final EventActivityRepository eventRepository;
     private final EventEmailService emailService;
-        private final EventTicketService ticketService;
-
-        private final RestTemplate restTemplate;
-        private final ObjectMapper objectMapper = new ObjectMapper();
+    private final EventTicketService ticketService;
 
     @Value("${app.payment.mock:false}")
     private boolean mockPayment;
-
-        @Value("${event.stripe.secret-key:}")
-        private String stripeSecretKey;
-
-        @Value("${app.payment.stripe.exchange-rate-tnd-to-eur:0.30}")
-        private BigDecimal tndToEurRate;
 
     @Transactional(readOnly = true)
     public List<EventPaymentResponse> getAll() {
@@ -78,159 +53,78 @@ public class EventPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public EventPaymentResponse getByReservation(
-            Integer reservationId) {
+    public EventPaymentResponse getByReservation(Integer reservationId) {
         return toResponse(repository
                 .findByReservationId(reservationId)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "Payment not found for reservation : "
-                                        + reservationId)));
+                        new RuntimeException("Payment not found for reservation : " + reservationId)));
     }
 
-    public EventPaymentResponse create(
-            EventPaymentRequest request) {
-
+    public EventPaymentResponse create(EventPaymentRequest request) {
         EventReservation reservation = reservationRepository
                 .findById(request.getReservationId())
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "Reservation not found : "
-                                        + request.getReservationId()));
+                        new RuntimeException("Reservation not found : " + request.getReservationId()));
 
-        if (repository.existsByReservationId(
-                request.getReservationId())) {
-            throw new RuntimeException(
-                    "Reservation already paid");
+        EventPayment payment = repository.findByReservationId(request.getReservationId()).orElse(null);
+        if (payment != null && payment.getPaymentStatus() == EventPayment.PaymentStatus.SUCCESS) {
+            throw new RuntimeException("Reservation already paid");
         }
 
-        if (request.getAmount().compareTo(
-                reservation.getTotalPrice()) != 0) {
-            throw new RuntimeException(
-                    "Amount does not match reservation price");
+        BigDecimal expectedAmount = resolvePayableAmount(reservation, request.getPromoCode());
+        BigDecimal requestedAmount = normalizeAmount(request.getAmount(), expectedAmount);
+        if (requestedAmount.compareTo(expectedAmount) != 0) {
+            throw new RuntimeException("Amount does not match expected reservation price");
         }
 
-        EventPayment payment = EventPayment.builder()
-                .amount(request.getAmount())
-                .paymentMethod(request.getPaymentMethod())
-                .paymentStatus(EventPayment.PaymentStatus.PENDING)
-                .transactionId(request.getTransactionId())
-                .currency(request.getCurrency())
-                .reservation(reservation)
-                .build();
+        if (payment == null) {
+            payment = EventPayment.builder()
+                    .reservation(reservation)
+                    .build();
+        }
+
+        payment.setAmount(expectedAmount);
+        payment.setPaymentMethod(normalizePaymentMethod(request.getPaymentMethod()));
+        payment.setPaymentStatus(EventPayment.PaymentStatus.PENDING);
+        payment.setTransactionId(normalizeTransactionId(request.getTransactionId(), reservation.getId()));
+        payment.setCurrency(normalizeCurrency(request.getCurrency()));
 
         return toResponse(repository.save(payment));
     }
 
-        public StripeCheckoutSessionResponse createStripeCheckoutSession(
-                        StripeCheckoutSessionRequest request,
-                        String email) {
-
-                EventReservation reservation = reservationRepository
-                                .findById(request.getReservationId())
-                                .orElseThrow(() -> new RuntimeException("Reservation not found : " + request.getReservationId()));
-
-                User caller = reservation.getUser();
-                if (caller == null || !Objects.equals(caller.getEmail(), email)) {
-                        throw new RuntimeException("Not authorized to pay for this reservation");
-                }
-
-                BigDecimal payableAmount = resolveStripeAmount(reservation, request.getPromoCode());
-                String checkoutCurrency = resolveCheckoutCurrency();
-                BigDecimal checkoutAmount = convertAmountForStripe(payableAmount, checkoutCurrency);
-                EventPayment payment = repository.findByReservationId(reservation.getId())
-                                .orElseGet(() -> EventPayment.builder()
-                                                .reservation(reservation)
-                                                .paymentStatus(EventPayment.PaymentStatus.PENDING)
-                                                .build());
-
-                if (payment.getPaymentStatus() == EventPayment.PaymentStatus.SUCCESS) {
-                        throw new RuntimeException("Reservation already paid");
-                }
-
-                StripeSessionPayload session = createStripeSession(reservation, checkoutAmount, checkoutCurrency);
-
-                payment.setAmount(checkoutAmount);
-                payment.setPaymentMethod("STRIPE");
-                payment.setPaymentStatus(EventPayment.PaymentStatus.PENDING);
-                payment.setTransactionId(session.sessionId());
-                payment.setCurrency(checkoutCurrency);
-                repository.save(payment);
-
-                return StripeCheckoutSessionResponse.builder()
-                                .sessionId(session.sessionId())
-                                .checkoutUrl(session.checkoutUrl())
-                                .reservationId(reservation.getId())
-                                .paymentId(payment.getId())
-                                .build();
-        }
-
-        public EventPaymentResponse confirmStripeCheckoutSession(
-                        StripeConfirmRequest request,
-                        String email) {
-
-                EventReservation reservation = reservationRepository
-                                .findById(request.getReservationId())
-                                .orElseThrow(() -> new RuntimeException("Reservation not found : " + request.getReservationId()));
-
-                User caller = reservation.getUser();
-                if (caller == null || !Objects.equals(caller.getEmail(), email)) {
-                        throw new RuntimeException("Not authorized to confirm this payment");
-                }
-
-                EventPayment payment = repository.findByReservationId(reservation.getId())
-                                .orElseThrow(() -> new RuntimeException("Payment not found for reservation : " + reservation.getId()));
-
-                if (request.getSessionId() == null || request.getSessionId().isBlank()) {
-                        throw new RuntimeException("Stripe sessionId is required");
-                }
-
-                if (payment.getTransactionId() == null || !payment.getTransactionId().equals(request.getSessionId().trim())) {
-                        throw new RuntimeException("Stripe session mismatch");
-                }
-
-                StripeSessionStatus session = fetchStripeSession(request.getSessionId().trim());
-                if (!"paid".equalsIgnoreCase(session.paymentStatus())) {
-                        payment.setPaymentStatus(EventPayment.PaymentStatus.FAILED);
-                        repository.save(payment);
-                        throw new RuntimeException("Stripe payment is not confirmed yet");
-                }
-
-                return success(payment.getId());
-        }
-
     public EventPaymentResponse success(Integer id) {
+        log.info("★ EventPaymentService.success() called with payment ID: {}", id);
         EventPayment payment = repository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Payment not found : " + id));
 
-        payment.setPaymentStatus(
-                EventPayment.PaymentStatus.SUCCESS);
+        payment.setPaymentStatus(EventPayment.PaymentStatus.SUCCESS);
         payment.setPaymentDate(LocalDateTime.now());
 
         EventReservation reservation = payment.getReservation();
-        reservation.setStatus(
-                EventReservation.ReservationStatus.CONFIRMED);
+        log.info("★ Setting reservation {} to CONFIRMED status", reservation.getId());
+        reservation.setStatus(EventReservation.ReservationStatus.CONFIRMED);
         reservationRepository.save(reservation);
         ticketService.ensureTicketsGenerated(reservation);
 
-        // 🔧 Envoyer email après paiement réussi
         try {
+            log.info("★ Calling sendConfirmationEmail for reservation {}", reservation.getId());
             sendConfirmationEmail(reservation);
+            log.info("★ Email sent successfully for reservation {}", reservation.getId());
         } catch (Exception e) {
-            log.warn("Email send failed for reservation {}: {}",
-                    reservation.getId(), e.getMessage());
+            log.error("★ Email send FAILED for reservation {}", reservation.getId(), e);
         }
 
         return toResponse(repository.save(payment));
     }
+
     @Transactional
     public EventPaymentResponse mockPaymentSuccess(Integer reservationId) {
         if (!mockPayment) {
             throw new RuntimeException("Mock payment not enabled");
         }
 
-        log.info("⚡ MOCK MODE: Paiement simulé pour réservation {}", reservationId);
+        log.info("MOCK MODE: simulated payment for reservation {}", reservationId);
 
         EventReservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() ->
@@ -240,8 +134,8 @@ public class EventPaymentService {
                 .orElseGet(() -> EventPayment.builder()
                         .reservation(reservation)
                         .amount(reservation.getTotalPrice())
-                        .paymentMethod("MOCK")
-                        .currency("TND")
+                        .paymentMethod("EVENT_STATIC")
+                        .currency("tnd")
                         .build());
 
         payment.setPaymentStatus(EventPayment.PaymentStatus.SUCCESS);
@@ -254,39 +148,52 @@ public class EventPaymentService {
         try {
             sendConfirmationEmail(reservation);
         } catch (Exception e) {
-            log.warn("Email send failed for mock payment {}: {}",
-                    reservationId, e.getMessage());
+            log.warn("Email send failed for mock payment {}",
+                    reservationId, e);
         }
 
         return toResponse(repository.save(payment));
     }
 
     private void sendConfirmationEmail(EventReservation reservation) {
+        log.info("★ sendConfirmationEmail() START for reservation {}", reservation.getId());
         User user = reservation.getUser();
-        if (user == null || user.getEmail() == null) return;
+        if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
+            log.warn("★ Skip confirmation email for reservation {} because user/email is missing (user={}, email={})", 
+                    reservation.getId(), user, user != null ? user.getEmail() : "N/A");
+            return;
+        }
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        String eventDate = reservation.getEvent().getStartDate().format(formatter);
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+            String eventDate = reservation.getEvent().getStartDate().format(formatter);
 
-        emailService.sendReservationConfirmation(
-                user.getEmail(),
-                user.getFullName(),
-                reservation.getEvent().getTitle(),
-                eventDate,
-                reservation.getEvent().getAddress() + ", " +
-                        reservation.getEvent().getCity(),
-                reservation.getNumberOfTickets(),
-                reservation.getTotalPrice(),
-                reservation.getId()
-        );
+            log.info("★ About to send email to {} with subject: Confirmation de réservation pour {}", 
+                    user.getEmail(), reservation.getEvent().getTitle());
+            
+            emailService.sendReservationConfirmation(
+                    user.getEmail(),
+                    user.getFullName(),
+                    reservation.getEvent().getTitle(),
+                    eventDate,
+                    reservation.getEvent().getAddress() + ", " + reservation.getEvent().getCity(),
+                    reservation.getNumberOfTickets(),
+                    reservation.getTotalPrice(),
+                    reservation.getId()
+            );
+            
+            log.info("★ sendConfirmationEmail() SUCCESS for reservation {}", reservation.getId());
+        } catch (Exception e) {
+            log.error("★ sendConfirmationEmail() EXCEPTION for reservation {}", reservation.getId(), e);
+            throw new RuntimeException("Failed to send confirmation email", e);
+        }
     }
 
     public EventPaymentResponse failed(Integer id) {
         EventPayment payment = repository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Payment not found : " + id));
-        payment.setPaymentStatus(
-                EventPayment.PaymentStatus.FAILED);
+        payment.setPaymentStatus(EventPayment.PaymentStatus.FAILED);
         return toResponse(repository.save(payment));
     }
 
@@ -295,22 +202,17 @@ public class EventPaymentService {
                 .orElseThrow(() ->
                         new RuntimeException("Payment not found : " + id));
 
-        if (payment.getPaymentStatus() !=
-                EventPayment.PaymentStatus.SUCCESS) {
-            throw new RuntimeException(
-                    "Cannot refund a payment that is not SUCCESS");
+        if (payment.getPaymentStatus() != EventPayment.PaymentStatus.SUCCESS) {
+            throw new RuntimeException("Cannot refund a payment that is not SUCCESS");
         }
 
-        payment.setPaymentStatus(
-                EventPayment.PaymentStatus.REFUNDED);
+        payment.setPaymentStatus(EventPayment.PaymentStatus.REFUNDED);
 
         EventReservation reservation = payment.getReservation();
-        reservation.setStatus(
-                EventReservation.ReservationStatus.CANCELLED);
+        reservation.setStatus(EventReservation.ReservationStatus.CANCELLED);
         ticketService.cancelTicketsForReservation(reservation.getId());
         reservation.getEvent().setAvailableSeats(
-                reservation.getEvent().getAvailableSeats() +
-                        reservation.getNumberOfTickets());
+                reservation.getEvent().getAvailableSeats() + reservation.getNumberOfTickets());
 
         reservationRepository.save(reservation);
         eventRepository.save(reservation.getEvent());
@@ -329,183 +231,81 @@ public class EventPaymentService {
                 .id(p.getId())
                 .amount(p.getAmount())
                 .paymentMethod(p.getPaymentMethod())
-                .paymentStatus(p.getPaymentStatus() != null ?
-                        p.getPaymentStatus().name() : null)
+                .paymentStatus(p.getPaymentStatus() != null ? p.getPaymentStatus().name() : null)
                 .transactionId(p.getTransactionId())
                 .paymentDate(p.getPaymentDate())
                 .currency(p.getCurrency())
                 .createdAt(p.getCreatedAt())
-                .reservationId(p.getReservation() != null ?
-                        p.getReservation().getId() : null)
-                .eventTitle(p.getReservation() != null &&
-                        p.getReservation().getEvent() != null ?
-                        p.getReservation().getEvent().getTitle() : null)
-                .userName(p.getReservation() != null &&
-                        p.getReservation().getUser() != null ?
-                        p.getReservation().getUser().getFullName() : null)
+                .reservationId(p.getReservation() != null ? p.getReservation().getId() : null)
+                .eventTitle(p.getReservation() != null && p.getReservation().getEvent() != null
+                        ? p.getReservation().getEvent().getTitle() : null)
+                .userName(p.getReservation() != null && p.getReservation().getUser() != null
+                        ? p.getReservation().getUser().getFullName() : null)
                 .build();
     }
 
-       private StripeSessionPayload createStripeSession(EventReservation reservation, BigDecimal payableAmount, String checkoutCurrency) {
-    if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
-        throw new RuntimeException("Stripe is not configured");
+    private BigDecimal resolvePayableAmount(EventReservation reservation, String promoCode) {
+        BigDecimal baseAmount = reservation.getTotalPrice() == null
+                ? BigDecimal.ZERO
+                : reservation.getTotalPrice();
+
+        if (promoCode == null || promoCode.isBlank()) {
+            return baseAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        EventActivity event = reservation.getEvent();
+        if (event == null) {
+            return baseAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        String expected = event.getPromoCode() == null ? "" : event.getPromoCode().trim().toLowerCase();
+        String provided = promoCode.trim().toLowerCase();
+        if (expected.isBlank() || !expected.equals(provided)) {
+            throw new RuntimeException("Code promo invalide ou expire.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (event.getPromoStartDate() != null && now.isBefore(event.getPromoStartDate())) {
+            throw new RuntimeException("Code promo pas encore valable.");
+        }
+
+        if (event.getPromoEndDate() != null && now.isAfter(event.getPromoEndDate())) {
+            throw new RuntimeException("Code promo expire.");
+        }
+
+        Integer percent = event.getPromoPercent();
+        if (percent == null || percent <= 0) {
+            throw new RuntimeException("Code promo invalide ou expire.");
+        }
+
+        BigDecimal discount = baseAmount.multiply(BigDecimal.valueOf(percent))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        return baseAmount.subtract(discount).setScale(2, RoundingMode.HALF_UP);
     }
 
-    String successUrl = "http://localhost:4200/payment/" + reservation.getId()
-            + "?stripeSessionId={CHECKOUT_SESSION_ID}";
-    String cancelUrl = "http://localhost:4200/payment/" + reservation.getId();
-
-    String eventTitle = reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Event ticket";
-    String eventId = reservation.getEvent() != null && reservation.getEvent().getId() != null
-            ? String.valueOf(reservation.getEvent().getId()) : "";
-    String unitAmount = payableAmount
-            .multiply(BigDecimal.valueOf(100))
-            .setScale(0, RoundingMode.HALF_UP)
-            .toPlainString();
-
-    // Build raw body manually to prevent {} from being URL-encoded
-    String rawBody = "mode=payment"
-            + "&success_url=" + encodeKeepBraces(successUrl)   // ← keeps {CHECKOUT_SESSION_ID} intact
-            + "&cancel_url=" + encode(cancelUrl)
-            + "&client_reference_id=" + reservation.getId()
-            + "&payment_method_types%5B0%5D=card"
-            + "&metadata%5BreservationId%5D=" + reservation.getId()
-            + "&metadata%5BeventId%5D=" + encode(eventId)
-            + "&line_items%5B0%5D%5Bquantity%5D=1"
-            + "&line_items%5B0%5D%5Bprice_data%5D%5Bcurrency%5D=" + encode(checkoutCurrency)
-            + "&line_items%5B0%5D%5Bprice_data%5D%5Bunit_amount%5D=" + unitAmount
-            + "&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bname%5D=" + encode(eventTitle)
-            + "&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bdescription%5D=" + encode(buildStripeDescription(reservation));
-
-    HttpHeaders headers = new HttpHeaders();
-    headers.setBasicAuth(stripeSecretKey, "");
-    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-    ResponseEntity<String> response = restTemplate.postForEntity(
-            STRIPE_CHECKOUT_API,
-            new HttpEntity<>(rawBody, headers),
-            String.class);
-
-    if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-        throw new RuntimeException("Stripe checkout session creation failed");
+    private BigDecimal normalizeAmount(BigDecimal requested, BigDecimal fallback) {
+        BigDecimal source = requested == null ? fallback : requested;
+        return source.setScale(2, RoundingMode.HALF_UP);
     }
 
-    try {
-        JsonNode root = objectMapper.readTree(response.getBody());
-        String sessionId = root.path("id").asText("");
-        String checkoutUrl = root.path("url").asText("");
-        if (sessionId.isBlank() || checkoutUrl.isBlank()) {
-            throw new RuntimeException("Stripe response missing url");
+    private String normalizeCurrency(String value) {
+        if (value == null || value.isBlank()) {
+            return "tnd";
         }
-        return new StripeSessionPayload(sessionId, checkoutUrl);
-    } catch (Exception ex) {
-        throw new RuntimeException("Stripe session parsing failed: " + ex.getMessage(), ex);
+        return value.trim().toLowerCase();
     }
-}
 
-// Encodes normally
-private String encode(String value) {
-    if (value == null) return "";
-    return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
-}
-
-// Encodes but restores {} so Stripe recognizes {CHECKOUT_SESSION_ID}
-private String encodeKeepBraces(String value) {
-    if (value == null) return "";
-    return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8)
-            .replace("%7B", "{")
-            .replace("%7D", "}");
-}
-        private StripeSessionStatus fetchStripeSession(String sessionId) {
-                if (stripeSecretKey == null || stripeSecretKey.isBlank()) {
-                        throw new RuntimeException("Stripe is not configured");
-                }
-
-                HttpHeaders headers = new HttpHeaders();
-                headers.setBasicAuth(stripeSecretKey, "");
-                ResponseEntity<String> response = restTemplate.exchange(
-                                STRIPE_SESSION_API + sessionId,
-                                org.springframework.http.HttpMethod.GET,
-                                new HttpEntity<>(headers),
-                                String.class);
-
-                try {
-                        JsonNode root = objectMapper.readTree(response.getBody() == null ? "{}" : response.getBody());
-                        String paymentStatus = root.path("payment_status").asText("");
-                        return new StripeSessionStatus(paymentStatus);
-                } catch (Exception ex) {
-                        throw new RuntimeException("Stripe session verification failed: " + ex.getMessage(), ex);
-                }
+    private String normalizePaymentMethod(String value) {
+        if (value == null || value.isBlank()) {
+            return "EVENT_STATIC";
         }
+        return value.trim().toUpperCase();
+    }
 
-        private BigDecimal resolveStripeAmount(EventReservation reservation, String promoCode) {
-                BigDecimal baseAmount = reservation.getTotalPrice();
-                if (promoCode == null || promoCode.isBlank()) {
-                        return baseAmount;
-                }
-
-                EventActivity event = reservation.getEvent();
-                if (event == null) {
-                        return baseAmount;
-                }
-
-                String expected = event.getPromoCode() == null ? "" : event.getPromoCode().trim().toLowerCase();
-                String provided = promoCode.trim().toLowerCase();
-                if (expected.isBlank() || !expected.equals(provided)) {
-                        throw new RuntimeException("Code promo invalide ou expiré.");
-                }
-
-                LocalDateTime now = LocalDateTime.now();
-                if (event.getPromoStartDate() != null && now.isBefore(event.getPromoStartDate())) {
-                        throw new RuntimeException("Code promo pas encore valable.");
-                }
-
-                if (event.getPromoEndDate() != null && now.isAfter(event.getPromoEndDate())) {
-                        throw new RuntimeException("Code promo expiré.");
-                }
-
-                Integer percent = event.getPromoPercent();
-                if (percent == null || percent <= 0) {
-                        throw new RuntimeException("Code promo invalide ou expiré.");
-                }
-
-                BigDecimal discount = baseAmount.multiply(BigDecimal.valueOf(percent)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                return baseAmount.subtract(discount).setScale(2, RoundingMode.HALF_UP);
+    private String normalizeTransactionId(String tx, Integer reservationId) {
+        if (tx != null && !tx.isBlank()) {
+            return tx.trim();
         }
-
-        private BigDecimal convertAmountForStripe(BigDecimal tndAmount, String checkoutCurrency) {
-                if (tndAmount == null) {
-                        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-                }
-
-                if ("eur".equalsIgnoreCase(checkoutCurrency)) {
-                        BigDecimal rate = tndToEurRate == null || tndToEurRate.compareTo(BigDecimal.ZERO) <= 0
-                                        ? new BigDecimal("0.30")
-                                        : tndToEurRate;
-                        return tndAmount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-                }
-
-                return tndAmount.setScale(2, RoundingMode.HALF_UP);
-        }
-
-        private String resolveCheckoutCurrency() {
-                return "eur";
-        }
-
-        private String buildStripeDescription(EventReservation reservation) {
-                String title = reservation.getEvent() != null ? reservation.getEvent().getTitle() : "Event";
-                int tickets = reservation.getNumberOfTickets();
-                String client = reservation.getUser() != null ? reservation.getUser().getFullName() : "Client";
-                return title + " - " + client + " - " + tickets + " billet(s)";
-        }
-
-        private String normalizeCurrency(String value) {
-                if (value == null || value.isBlank()) {
-                        return "eur";
-                }
-                return value.trim().toLowerCase();
-        }
-
-        private record StripeSessionPayload(String sessionId, String checkoutUrl) {}
-        private record StripeSessionStatus(String paymentStatus) {}
+        return "EVT-STATIC-" + reservationId + "-" + System.currentTimeMillis();
+    }
 }

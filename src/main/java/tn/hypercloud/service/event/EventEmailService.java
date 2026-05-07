@@ -40,40 +40,43 @@ public class EventEmailService {
             BigDecimal totalPrice,
             Integer reservationId
     ) {
+        log.info("★ EventEmailService.sendReservationConfirmation() START - reservation:{}, email:{}", reservationId, toEmail);
+        
+          DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+          LocalDateTime parsedDate;
+          try {
+            parsedDate = LocalDateTime.parse(eventDate, formatter);
+          } catch (Exception e) {
+            log.warn("Invalid event date format '{}' for reservation {}. Using now() as fallback.", eventDate, reservationId);
+            parsedDate = LocalDateTime.now();
+          }
+
         // Calculer prix unitaire (pour la facture)
         BigDecimal unitPrice = numberOfTickets > 0
           ? totalPrice.divide(BigDecimal.valueOf(numberOfTickets), 2, RoundingMode.HALF_UP)
                 : totalPrice;
 
-        // Générer facture PDF
-        byte[] invoicePdf;
-        try {
-            // Parser la date pour LocalDateTime
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-            LocalDateTime parsedDate = LocalDateTime.parse(eventDate, formatter);
-
-            invoicePdf = invoiceService.generateInvoicePdf(
-                    clientName,
-                    toEmail,
-                    eventTitle,
-                    parsedDate,
-                    eventAddress,
-                    numberOfTickets,
-                    unitPrice,
-                    totalPrice,
-                    reservationId
-            );
-        } catch (Exception e) {
-            log.error("Invoice PDF generation failed", e);
-            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Erreur generation facture: " + e.getMessage());
-        }
-
-        // Préparer l'attachment (juste la facture PDF)
         Map<String, byte[]> attachments = new HashMap<>();
-        // Nom de facture pro : sans ID
-        String invoiceName = "facture_" + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")) + ".pdf";
-        attachments.put(invoiceName, invoicePdf);
+
+          // Générer facture PDF (si possible)
+          try {
+            byte[] invoicePdf = invoiceService.generateInvoicePdf(
+                clientName,
+                toEmail,
+                eventTitle,
+                parsedDate,
+                eventAddress,
+                numberOfTickets,
+                unitPrice,
+                totalPrice,
+                reservationId
+            );
+
+            String invoiceName = "facture_" + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")) + ".pdf";
+            attachments.put(invoiceName, invoicePdf);
+          } catch (Exception e) {
+            log.warn("Invoice PDF generation failed for reservation {}: {}", reservationId, e.getMessage());
+          }
 
         // Générer PDF billets (1 page par ticket)
         try {
@@ -85,9 +88,6 @@ public class EventEmailService {
               .ticketCode(t.getTicketCode())
               .build())
             .toList();
-
-          DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-          LocalDateTime parsedDate = LocalDateTime.parse(eventDate, formatter);
 
           byte[] ticketsPdf = invoiceService.generateTicketsPdf(
             clientName,
@@ -120,9 +120,20 @@ public class EventEmailService {
             );
             log.info("Confirmation email sent to {} with PDF", toEmail);
         } catch (Exception e) {
-            log.error("Mail send failed", e);
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "Echec envoi mail: " + e.getMessage());
+            log.warn("Mail with attachments failed for {}. Retrying without attachments.", toEmail);
+            try {
+              passwordResetEmailService.sendEmailWithAttachments(
+                  toEmail,
+                  subject,
+                  body,
+                  null
+              );
+              log.info("Confirmation email sent to {} without attachments", toEmail);
+            } catch (Exception retryException) {
+              log.error("Mail send failed after retry without attachments", retryException);
+              throw new ApiException(HttpStatus.BAD_REQUEST,
+                  "Echec envoi mail: " + retryException.getMessage());
+            }
         }
     }
 
